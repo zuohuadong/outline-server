@@ -21,45 +21,22 @@ import * as restify from 'restify';
 
 import {RealClock} from '../infrastructure/clock';
 import {PortProvider} from '../infrastructure/get_port';
-import * as ip_location from '../infrastructure/ip_location';
 import * as json_config from '../infrastructure/json_config';
 import * as logging from '../infrastructure/logging';
 import {PrometheusClient, runPrometheusScraper} from '../infrastructure/prometheus_scraper';
 import {RolloutTracker} from '../infrastructure/rollout';
 import {AccessKeyId} from '../model/access_key';
-import {ShadowsocksServer} from '../model/shadowsocks_server';
 
-import {createLibevShadowsocksServer} from './libev_shadowsocks_server';
-import {LegacyManagerMetrics, LegacyManagerMetricsJson, PrometheusManagerMetrics} from './manager_metrics';
+import {PrometheusManagerMetrics} from './manager_metrics';
 import {bindService, ShadowsocksManagerService} from './manager_service';
 import {OutlineShadowsocksServer} from './outline_shadowsocks_server';
 import {AccessKeyConfigJson, ServerAccessKeyRepository} from './server_access_key';
 import * as server_config from './server_config';
-import {createPrometheusUsageMetricsWriter, OutlineSharedMetricsPublisher, PrometheusUsageMetrics, RestMetricsCollectorClient, SharedMetricsPublisher} from './shared_metrics';
+import {OutlineSharedMetricsPublisher, PrometheusUsageMetrics, RestMetricsCollectorClient, SharedMetricsPublisher} from './shared_metrics';
 
 const DEFAULT_STATE_DIR = '/root/shadowbox/persisted-state';
-const MAX_STATS_FILE_AGE_MS = 5000;
 const MMDB_LOCATION = '/var/lib/libmaxminddb/GeoLite2-Country.mmdb';
 
-// Serialized format for the metrics file.
-// WARNING: Renaming fields will break backwards-compatibility.
-interface MetricsConfigJson {
-  // Serialized ManagerStats object.
-  transferStats?: LegacyManagerMetricsJson;
-  // DEPRECATED: hourlyMetrics. Hourly stats live in memory only now.
-}
-
-function readMetricsConfig(filename: string): json_config.JsonConfig<MetricsConfigJson> {
-  try {
-    const metricsConfig = json_config.loadFileConfig<MetricsConfigJson>(filename);
-    // Make sure we have non-empty sub-configs.
-    metricsConfig.data().transferStats =
-        metricsConfig.data().transferStats || {} as LegacyManagerMetricsJson;
-    return new json_config.DelayedConfig(metricsConfig, MAX_STATS_FILE_AGE_MS);
-  } catch (error) {
-    throw new Error(`Failed to read metrics config at ${filename}: ${error}`);
-  }
-}
 
 async function exportPrometheusMetrics(registry: prometheus.Registry, port): Promise<http.Server> {
   return new Promise<http.Server>((resolve, _) => {
@@ -76,16 +53,32 @@ async function exportPrometheusMetrics(registry: prometheus.Registry, port): Pro
 
 function reserveAccessKeyPorts(
     keyConfig: json_config.JsonConfig<AccessKeyConfigJson>, portProvider: PortProvider) {
-  for (const accessKeyJson of keyConfig.data().accessKeys || []) {
-    portProvider.addReservedPort(accessKeyJson.port);
-  }
+  const accessKeys = keyConfig.data().accessKeys || [];
+  const dedupedPorts = new Set(accessKeys.map(ak => ak.port));
+  dedupedPorts.forEach(p => portProvider.addReservedPort(p));
 }
 
-function createLegacyManagerMetrics(configFilename: string): LegacyManagerMetrics {
-  const metricsConfig = readMetricsConfig(configFilename);
-  return new LegacyManagerMetrics(
-      new RealClock(),
-      new json_config.ChildConfig(metricsConfig, metricsConfig.data().transferStats));
+function getPortForNewAccessKeys(
+    serverConfig: json_config.JsonConfig<server_config.ServerConfigJson>,
+    keyConfig: json_config.JsonConfig<AccessKeyConfigJson>): number {
+  if (!serverConfig.data().portForNewAccessKeys) {
+    // NOTE(2019-01-04): For backward compatibility. Delete after servers have been migrated.
+    if (keyConfig.data().defaultPort) {
+      // Migrate setting from keyConfig to serverConfig.
+      serverConfig.data().portForNewAccessKeys = keyConfig.data().defaultPort;
+      serverConfig.write();
+      delete keyConfig.data().defaultPort;
+      keyConfig.write();
+    }
+  }
+  return serverConfig.data().portForNewAccessKeys;
+}
+
+async function reservePortForNewAccessKeys(
+    portProvider: PortProvider,
+    serverConfig: json_config.JsonConfig<server_config.ServerConfigJson>): Promise<number> {
+  serverConfig.data().portForNewAccessKeys = await portProvider.reserveNewPort();
+  return serverConfig.data().portForNewAccessKeys;
 }
 
 function createRolloutTracker(serverConfig: json_config.JsonConfig<server_config.ServerConfigJson>):
@@ -140,7 +133,9 @@ async function main() {
   logging.info('Starting...');
 
   const prometheusPort = await portProvider.reserveFirstFreePort(9090);
-  const prometheusLocation = `localhost:${prometheusPort}`;
+  // Use 127.0.0.1 instead of localhost for Prometheus because it's resolving incorrectly for some
+  // users. See https://github.com/Jigsaw-Code/outline-server/issues/341
+  const prometheusLocation = `127.0.0.1:${prometheusPort}`;
 
   const nodeMetricsPort = await portProvider.reserveFirstFreePort(prometheusPort + 1);
   exportPrometheusMetrics(prometheus.register, nodeMetricsPort);
@@ -160,23 +155,14 @@ async function main() {
     ]
   };
 
-  const rollouts = createRolloutTracker(serverConfig);
-  let shadowsocksServer: ShadowsocksServer;
-  if (rollouts.isRolloutEnabled('outline-ss-server', 100)) {
-    const ssMetricsLocation = `localhost:${ssMetricsPort}`;
-    logging.info(`outline-ss-server metrics is at ${ssMetricsLocation}`);
-    prometheusConfigJson.scrape_configs.push(
-        {job_name: 'outline-server-ss', static_configs: [{targets: [ssMetricsLocation]}]});
-    shadowsocksServer =
-        new OutlineShadowsocksServer(
-            getPersistentFilename('outline-ss-server/config.yml'), verbose, ssMetricsLocation)
-            .enableCountryMetrics(MMDB_LOCATION);
-  } else {
-    const ipLocation = new ip_location.MmdbLocationService(MMDB_LOCATION);
-    const metricsWriter = createPrometheusUsageMetricsWriter(prometheus.register);
-    shadowsocksServer = await createLibevShadowsocksServer(
-        proxyHostname, await portProvider.reserveNewPort(), ipLocation, metricsWriter, verbose);
-  }
+  const ssMetricsLocation = `localhost:${ssMetricsPort}`;
+  logging.info(`outline-ss-server metrics is at ${ssMetricsLocation}`);
+  prometheusConfigJson.scrape_configs.push(
+      {job_name: 'outline-server-ss', static_configs: [{targets: [ssMetricsLocation]}]});
+  const shadowsocksServer =
+      new OutlineShadowsocksServer(
+          getPersistentFilename('outline-ss-server/config.yml'), verbose, ssMetricsLocation)
+          .enableCountryMetrics(MMDB_LOCATION);
   runPrometheusScraper(
       [
         '--storage.tsdb.retention', '31d', '--storage.tsdb.path',
@@ -188,14 +174,22 @@ async function main() {
   const accessKeyRepository = new ServerAccessKeyRepository(
       portProvider, proxyHostname, accessKeyConfig, shadowsocksServer);
 
+  // TODO(fortuna): Once single-port is fully rollout, we should:
+  // - update `install_server.sh` to stop using `--net=host` for new servers (old servers are stuck
+  //   with that forever) and output new instructions for port configuration.
+  // - update manger UI to provide new instructions for port configuration in manual mode.
+  if (createRolloutTracker(serverConfig).isRolloutEnabled('single-port', 20)) {
+    const portForNewAccessKeys = getPortForNewAccessKeys(serverConfig, accessKeyConfig) ||
+        await reservePortForNewAccessKeys(portProvider, serverConfig);
+    accessKeyRepository.enableSinglePort(portForNewAccessKeys);
+  }
+
   const prometheusClient = new PrometheusClient(`http://${prometheusLocation}`);
   const metricsReader = new PrometheusUsageMetrics(prometheusClient);
   const toMetricsId = (id: AccessKeyId) => {
     return accessKeyRepository.getMetricsId(id);
   };
-  const legacyManagerMetrics =
-      createLegacyManagerMetrics(getPersistentFilename('shadowbox_stats.json'));
-  const managerMetrics = new PrometheusManagerMetrics(prometheusClient, legacyManagerMetrics);
+  const managerMetrics = new PrometheusManagerMetrics(prometheusClient);
   const metricsCollector = new RestMetricsCollectorClient(metricsCollectorUrl);
   const metricsPublisher: SharedMetricsPublisher = new OutlineSharedMetricsPublisher(
       new RealClock(), serverConfig, metricsReader, toMetricsId, metricsCollector);

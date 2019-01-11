@@ -19,6 +19,7 @@ import {PortProvider} from '../infrastructure/get_port';
 import {JsonConfig} from '../infrastructure/json_config';
 import {AccessKey, AccessKeyId, AccessKeyMetricsId, AccessKeyRepository} from '../model/access_key';
 import {ShadowsocksServer} from '../model/shadowsocks_server';
+import {ServerConfigJson} from './server_config';
 
 // The format as json of access keys in the config file.
 interface AccessKeyConfig {
@@ -35,6 +36,9 @@ export interface AccessKeyConfigJson {
   accessKeys?: AccessKeyConfig[];
   // Next AccessKeyId to use.
   nextId?: number;
+
+  // DEPRECATED: Use ServerConfigJson.portForNewAccessKeys instead.
+  defaultPort?: number;
 }
 
 // Generates a random password for Shadowsocks access keys.
@@ -61,6 +65,7 @@ function makeAccessKey(hostname: string, accessKeyJson: AccessKeyConfig): Access
 export class ServerAccessKeyRepository implements AccessKeyRepository {
   // This is the max id + 1 among all access keys. Used to generate unique ids for new access keys.
   private NEW_USER_ENCRYPTION_METHOD = 'chacha20-ietf-poly1305';
+  private portForNewAccessKeys: number|undefined;
 
   constructor(
       private portProvider: PortProvider, private proxyHostname: string,
@@ -75,8 +80,12 @@ export class ServerAccessKeyRepository implements AccessKeyRepository {
     this.updateServer();
   }
 
+  enableSinglePort(portForNewAccessKeys: number) {
+    this.portForNewAccessKeys = portForNewAccessKeys;
+  }
+
   async createNewAccessKey(): Promise<AccessKey> {
-    const port = await this.portProvider.reserveNewPort();
+    const port = this.portForNewAccessKeys || await this.portProvider.reserveNewPort();
     const id = this.keyConfig.data().nextId.toString();
     this.keyConfig.data().nextId += 1;
     const metricsId = uuidv4();

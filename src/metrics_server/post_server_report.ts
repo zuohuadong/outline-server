@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as bigquery from '@google-cloud/bigquery';
+import {BigQuery} from '@google-cloud/bigquery';
 
 // TODO(dborkan): HourlyServerMetricsReport and HourlyUserMetricsReport are
 // copied from src/shadowbox/server/metrics.ts - find a way to share these
@@ -39,16 +39,14 @@ interface ConnectionRow {
 }
 
 // Instantiates a client
-const bigqueryProject = bigquery({
-  projectId: 'uproxysite'
-});
+const bigqueryProject = new BigQuery({projectId: 'uproxysite'});
 
 export function postServerReport(datasetName: string, tableName: string, serverReport: HourlyServerMetricsReport) {
   const dataset = bigqueryProject.dataset(datasetName);
   const table = dataset.table(tableName);
   const rows = getConnectionRowsFromServerReport(serverReport);
   return new Promise((fulfill, reject) => {
-    table.insert(rows, (err: Error) => {
+    table.insert(rows, (err) => {
       if (err) {
         reject(err);
       } else {

@@ -14,10 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-yarn do metrics_server/build
+yarn do sentry_webhook/build
 
-cp src/metrics_server/config_test.json build/metrics_server/config.json
-
-cp src/metrics_server/package.json build/metrics_server/
-
-gcloud --project=uproxysite functions deploy reportHourlyConnectionMetricsTest --trigger-http --source=build/metrics_server --entry-point=reportHourlyConnectionMetrics
+cp src/sentry_webhook/package.json build/sentry_webhook/
+gcloud --project=uproxysite functions deploy postSentryEventToSalesforce --trigger-http --source=build/sentry_webhook --entry-point=postSentryEventToSalesforce

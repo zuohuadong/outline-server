@@ -1,7 +1,7 @@
 language: node_js
 
 node_js:
-  - "8"
+  - "10"
 
 cache:
   yarn: true
@@ -12,14 +12,16 @@ cache:
 
 before_install:
   # https://docs.travis-ci.com/user/languages/javascript-with-nodejs#Travis-CI-supports-yarn
-  - curl -o- -L https://yarnpkg.com/install.sh | bash -s -- --version 1.3.2
+  - curl -o- -L https://yarnpkg.com/install.sh | bash -s -- --version 1.12.3
   - export PATH="$HOME/.yarn/bin:$PATH"
 
 stages:
-  - build and unit test
-  - integration test
   - name: tag
     if: type = cron
+  - name: build and unit test
+    if: type != cron
+  - name: integration test
+    if: type != cron
   - name: deploy
     if: tag =~ ^daily
   - name: release
@@ -30,6 +32,11 @@ stages:
 # doing, we add a descriptive environment variable.
 jobs:
   include:
+    - stage: tag
+      script:
+        - RELEASE_NAME=daily-$(date -I)
+        - curl --data '{"tag_name":"'$RELEASE_NAME'","name":"'$RELEASE_NAME'","prerelease":true}' https://api.github.com/repos/Jigsaw-Code/outline-server/releases?access_token=$CI_USER_TOKEN
+
     # Ideally, we would split this stage in some way, e.g. by component or by
     # build/test commands, to make it clearer in the Travis UI exactly which
     # command failed. However, since each stage incurs a significantly start-up
@@ -37,6 +44,8 @@ jobs:
     # stage.
     - stage: build and unit test
       script:
+        - yarn do metrics_server/build
+        - yarn do sentry_webhook/build
         - yarn do shadowbox/server/build
         - yarn do shadowbox/test
         - yarn do server_manager/electron_app/build
@@ -55,11 +64,6 @@ jobs:
           chmod +x docker-compose
           sudo mv docker-compose /usr/local/bin
         - yarn do shadowbox/integration_test/run
-
-    - stage: tag
-      script:
-        - RELEASE_NAME=daily-$(date -I)
-        - curl --data '{"tag_name":"'$RELEASE_NAME'","name":"'$RELEASE_NAME'","prerelease":true}' https://api.github.com/repos/Jigsaw-Code/outline-server/releases?access_token=$CI_USER_TOKEN
 
     - stage: deploy
       env:

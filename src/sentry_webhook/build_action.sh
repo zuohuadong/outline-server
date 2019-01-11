@@ -14,18 +14,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Make a certificate for development purposes, and populate the
-# corresponding environment variables.
-CERTIFICATE_NAME='/tmp/shadowbox-selfsigned-dev'
-export SB_CERTIFICATE_FILE="${CERTIFICATE_NAME}.crt"
-export SB_PRIVATE_KEY_FILE="${CERTIFICATE_NAME}.key"
-declare -a openssl_req_flags=(
-  -x509
-  -nodes
-  -days 36500
-  -newkey rsa:2048
-  -subj '/CN=localhost'
-  -keyout "${SB_PRIVATE_KEY_FILE}"
-  -out "${SB_CERTIFICATE_FILE}"
-)
-openssl req "${openssl_req_flags[@]}"
+tsc -p $(dirname $0)
