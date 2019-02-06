@@ -39,7 +39,9 @@ interface ConnectionRow {
 }
 
 // Instantiates a client
-const bigqueryProject = new BigQuery({projectId: 'uproxysite'});
+const bigqueryProject = new BigQuery({
+  projectId: 'uproxysite'
+});
 
 export function postServerReport(datasetName: string, tableName: string, serverReport: HourlyServerMetricsReport) {
   const dataset = bigqueryProject.dataset(datasetName);
