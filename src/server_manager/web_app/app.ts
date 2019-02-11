@@ -231,8 +231,8 @@ export class App {
 
     try {
       const config = parseManualServerConfig(text);
-      // TODO: this.appRoot.openConfirmInviteDialog(config);
       console.debug(`found server in clipboard!: ${JSON.stringify(config)}`);
+      this.appRoot.openConfirmServerDialog(config);
     } catch (e) {
       // Don't alert the user; high false positive rate.
     }

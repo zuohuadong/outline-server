@@ -37,6 +37,7 @@
 <link rel="import" href="./outline-server-progress-step.html">
 <link rel="import" href="./outline-server-view.html">
 <link rel="import" href="./outline-tos-view.html">
+<link rel="import" href="./outline-confirm-server-dialog.html">
 
 <dom-module id="app-root">
   <template>
@@ -286,11 +287,16 @@
       #getConnectedDialog .buttons {
          margin-top: -5px;  /* undo spacing added after iframe */
       }
+
+      /* Must cover everything, even the server confirmation dialog. */
+      outline-tos-view {
+        z-index: 1000;
+      }
     </style>
 
     <outline-tos-view id="tosView" has-accepted-terms-of-service={{userAcceptedTos}} hidden$="{{hasAcceptedTos}}"></outline-tos-view>
 
-    <div hidden$="{{!hasAcceptedTos}}">
+    <div>
       <!-- This responsive width sets the minimum layout area to 648px.  -->
       <app-drawer-layout id="drawerLayout" responsive-width="886px" on-narrow-changed="_computeShouldShowSideBar" class$="[[sideBarMarginClass]]">
         <app-drawer id="appDrawer" slot="drawer" on-opened-changed="_computeShouldShowSideBar">
@@ -420,6 +426,7 @@
       <outline-modal-dialog id='modalDialog'></outline-modal-dialog>
       <outline-share-dialog id="shareDialog"></outline-share-dialog>
       <outline-metrics-option-dialog id="metricsDialog"></outline-metrics-option-dialog>
+      <outline-confirm-server-dialog id='confirmServerDialog'></outline-confirm-server-dialog>
 
       <paper-dialog id="getConnectedDialog" modal>
         <!-- iframe gets inserted here once we are given the invite URL. -->
@@ -603,6 +610,9 @@
             continueFunc();
           }
         });
+      },
+      openConfirmServerDialog: function(config) {
+        this.$.confirmServerDialog.open(config);
       },
       showManualServerError: function (errorTitle, errorText) {
         this.showModalDialog(errorTitle, errorText, ['cancel', 'retry'])
