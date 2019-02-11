@@ -112,6 +112,10 @@ function createMainWindow() {
     if (!debugMode) {
       autoUpdater.checkForUpdates();
     }
+
+    // Opening the window doesn't necessarily trigger a focus event.
+    // Check the clipboard now so that we detect servers on startup.
+    win.webContents.send('poll-clipboard');
   });
 
   // Disable window maximization.  Setting "maximizable: false" in BrowserWindow
@@ -238,6 +242,12 @@ function main() {
 
   app.on('window-all-closed', () => {
     app.quit();
+  });
+
+  app.on('browser-window-focus', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('poll-clipboard');
+    }
   });
 }
 
