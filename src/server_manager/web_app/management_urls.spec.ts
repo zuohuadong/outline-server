@@ -14,6 +14,7 @@
 
 import {parseManualServerConfig} from './management_urls';
 
+// TODO: more URL tests
 describe('parseManualServerConfig', () => {
   it('basic case', () => {
     const result =
@@ -59,5 +60,19 @@ describe('parseManualServerConfig', () => {
         parseManualServerConfig('{"apiUrl":http://abc.com/xyz, "certSha256":"123\n4567"}');
     expect(result.apiUrl).toEqual('http://abc.com/xyz');
     expect(result.certSha256).toEqual('1234567');
+  });
+
+  it('handles Outline Manager URLs', () => {
+    const result = parseManualServerConfig(
+        'outlinem://%7B%22apiUrl%22%3A%22http%3A%2F%2Fabc.com%2Fxyz%22%2C%22certSha256%22%3A%221234567%22%7D');
+    expect(result.apiUrl).toEqual('http://abc.com/xyz');
+    expect(result.certSha256).toEqual('1234567');
+  });
+
+  it('rejects non-Outline Manager URLs', () => {
+    expect(
+        () => parseManualServerConfig(
+            'test://%7B%22apiUrl%22%3A%22http%3A%2F%2Fabc.com%2Fxyz%22%2C%22certSha256%22%3A%221234567%22%7D'))
+        .toThrow();
   });
 });
