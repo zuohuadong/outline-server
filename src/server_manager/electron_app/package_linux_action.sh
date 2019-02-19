@@ -16,6 +16,13 @@
 
 yarn do server_manager/electron_app/build
 
+# desktopName is required for setAsDefaultProtocolClient to succeed. It must match the name of the
+# .desktop file added when the user chooses to "integrate" the AppImage with their system (typically
+# it's placed in ~/.local/share/applications).
+#
+# Set this - very lightly documented - option here rather than in package.json because it is so
+# Linux-specific (it unfortunately *cannot* be set in electron-builder.json).
+
 $ROOT_DIR/src/server_manager/node_modules/.bin/electron-builder \
   --projectDir=build/server_manager/electron_app/static \
   --config.asarUnpack=server_manager/web_app/images \
@@ -23,6 +30,7 @@ $ROOT_DIR/src/server_manager/node_modules/.bin/electron-builder \
   --config.publish.provider=generic \
   --config.publish.url=https://raw.githubusercontent.com/Jigsaw-Code/outline-releases/master/manager/ \
   --linux AppImage \
+  --config.extraMetadata.desktopName=appimagekit-outline-manager.desktop \
   --config.linux.icon=icons/png \
   --config.linux.category=Network \
   --config.artifactName='Outline-Manager.${ext}'

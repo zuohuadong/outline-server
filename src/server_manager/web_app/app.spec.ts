@@ -31,7 +31,7 @@ const TOKEN_WITH_ONE_SERVER = 'one-server-token';
 // tslint:disable-next-line:no-any
 (global as any).bringToFront = () => {};
 // tslint:disable-next-line:no-any
-(global as any).setClipboardHandler = () => {};
+(global as any).setServerConfigHandler = () => {};
 
 describe('App', () => {
   it('shows intro when starting with no manual servers or DigitalOcean token', (done) => {

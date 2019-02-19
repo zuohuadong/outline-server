@@ -213,13 +213,13 @@ export class App {
 
     onUpdateDownloaded(this.displayAppUpdateNotification.bind(this));
 
-    setClipboardHandler(this.clipboardHandler.bind(this));
+    setServerConfigHandler(this.serverConfigHandler.bind(this));
   }
 
   private lastClipboardText: string;
 
   // TODO: ignore if server already added
-  private clipboardHandler(text: string) {
+  private serverConfigHandler(text: string) {
     // Shorten, sanitise.
     text = text.substring(0, 1000).trim();
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import * as sentry from '@sentry/electron';
-import {clipboard, ipcRenderer} from 'electron';
+import {ipcRenderer} from 'electron';
 import {URL} from 'url';
 
 import * as digitalocean_oauth from './digitalocean_oauth';
@@ -51,8 +51,8 @@ sentry.init({dsn: params.get('sentryDsn')});
 };
 
 // tslint:disable-next-line:no-any
-(window as any).setClipboardHandler = (callback: (contents: string) => void) => {
-  ipcRenderer.on('poll-clipboard', () => {
-    callback(clipboard.readText());
+(window as any).setServerConfigHandler = (callback: (contents: string) => void) => {
+  ipcRenderer.on('handle-server-config', (e: unknown, contents: string) => {
+    callback(contents);
   });
 };

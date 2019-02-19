@@ -39,16 +39,12 @@ sentry.init({
   // Sentry provides a sensible default but we would prefer without the leading "outline-manager@".
   release: electron.app.getVersion(),
   maxBreadcrumbs: 100,
-  shouldAddBreadcrumb: (breadcrumb) => {
-    // Don't submit breadcrumbs for console.debug.
-    if (breadcrumb.category === 'console') {
-      if (breadcrumb.level === sentry.Severity.Debug) {
-        return false;
-      }
-    }
-    return true;
-  },
   beforeBreadcrumb: (breadcrumb) => {
+    // Don't submit breadcrumbs for console.debug.
+    if (breadcrumb.category === 'console' && breadcrumb.level === sentry.Severity.Debug) {
+      return null;
+    }
+
     // Redact PII from XHR requests.
     if (breadcrumb.category === 'fetch' && breadcrumb.data && breadcrumb.data.url) {
       try {
@@ -68,8 +64,11 @@ interface IpcEvent {
   returnValue: {};
 }
 
+// Prevent window being garbage collected.
+let mainWindow: Electron.BrowserWindow;
+
 function createMainWindow() {
-  const win = new electron.BrowserWindow({
+  mainWindow = new electron.BrowserWindow({
     width: 800,
     height: 1024,
     minWidth: 600,
@@ -83,9 +82,9 @@ function createMainWindow() {
     }
   });
   const webAppUrl = getWebAppUrl();
-  win.loadURL(webAppUrl);
+  mainWindow.loadURL(webAppUrl);
 
-  const loadingWindow = new LoadingWindow(win, 'outline://web_app/loading.html');
+  const loadingWindow = new LoadingWindow(mainWindow, 'outline://web_app/loading.html');
   const LOADING_WINDOW_DELAY_MS = 3000;
 
   const handleNavigation = (event: Event, url: string) => {
@@ -101,11 +100,11 @@ function createMainWindow() {
     }
     event.preventDefault();
   };
-  win.webContents.on('will-navigate', (event: Event, url: string) => {
+  mainWindow.webContents.on('will-navigate', (event: Event, url: string) => {
     handleNavigation(event, url);
   });
-  win.webContents.on('new-window', handleNavigation.bind(this));
-  win.webContents.on('did-finish-load', () => {
+  mainWindow.webContents.on('new-window', handleNavigation.bind(this));
+  mainWindow.webContents.on('did-finish-load', () => {
     loadingWindow.hide();
 
     // Wait until now to check for updates now so that the UI won't miss the event.
@@ -115,14 +114,34 @@ function createMainWindow() {
 
     // Opening the window doesn't necessarily trigger a focus event.
     // Check the clipboard now so that we detect servers on startup.
-    win.webContents.send('poll-clipboard');
+    pushClipboardToFrontend();
+
+    // Now that the UI is ready, handle any URL that was passed to us.
+    pushArgsToFrontend(process.argv);
   });
 
   // Disable window maximization.  Setting "maximizable: false" in BrowserWindow
   // options does not work as documented.
-  win.setMaximizable(false);
+  mainWindow.setMaximizable(false);
+}
 
-  return win;
+function pushClipboardToFrontend() {
+  pushServerConfigToFrontend(electron.clipboard.readText());
+}
+
+// TODO: any need to pre-process arguments? (the client does, on windows)
+function pushArgsToFrontend(argv: string[]) {
+  if (argv.length > 1) {
+    pushServerConfigToFrontend(argv[1]);
+  }
+}
+
+function pushServerConfigToFrontend(s: string) {
+  if (!mainWindow) {
+    console.error('wanted to push possible server config to frontend but window is not open');
+  }
+
+  mainWindow.webContents.send('handle-server-config', s);
 }
 
 function getWebAppUrl() {
@@ -152,103 +171,105 @@ function getWebAppUrl() {
   return webAppUrlString;
 }
 
-function main() {
-  // prevent window being garbage collected
-  let mainWindow: Electron.BrowserWindow;
+// Mark secure to avoid mixed content warnings when loading DigitalOcean pages via https://.
+electron.protocol.registerStandardSchemes(['outline'], {secure: true});
 
-  // Mark secure to avoid mixed content warnings when loading DigitalOcean pages via https://.
-  electron.protocol.registerStandardSchemes(['outline'], {secure: true});
-
-  const isSecondInstance = app.makeSingleInstance((argv, workingDirectory) => {
-    // Someone tried to run a second instance, we should focus our window.
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
-    }
-  });
-
-  if (isSecondInstance) {
-    app.quit();
-  }
-
-  app.on('ready', () => {
-    const menuTemplate = menu.getMenuTemplate(debugMode);
-    if (menuTemplate.length > 0) {
-      electron.Menu.setApplicationMenu(electron.Menu.buildFromTemplate(menuTemplate));
-    }
-
-    // Register a custom protocol so we can use absolute paths in the web app.
-    // This also acts as a kind of chroot for the web app, so it cannot access
-    // the user's filesystem. Hostnames are ignored.
-    electron.protocol.registerFileProtocol(
-        'outline',
-        (request, callback) => {
-          const appPath = new URL(request.url).pathname;
-          const filesystemPath = path.join(__dirname, 'server_manager/web_app', appPath);
-          callback(filesystemPath);
-        },
-        (error) => {
-          if (error) {
-            throw new Error('Failed to register outline protocol');
-          }
-        });
-    mainWindow = createMainWindow();
-  });
-
-  const UPDATE_DOWNLOADED_EVENT = 'update-downloaded';
-  autoUpdater.on(UPDATE_DOWNLOADED_EVENT, (ev, info) => {
-    if (mainWindow) {
-      mainWindow.webContents.send(UPDATE_DOWNLOADED_EVENT);
-    }
-  });
-
-  // Handle cert whitelisting requests from the renderer process.
-  const trustedFingerprints = new Set<string>();
-  ipcMain.on('whitelist-certificate', (event: IpcEvent, fingerprint: string) => {
-    trustedFingerprints.add(`sha256/${fingerprint}`);
-    event.returnValue = true;
-  });
-  app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-    event.preventDefault();
-    callback(trustedFingerprints.has(certificate.fingerprint));
-  });
-
-  // Restores the mainWindow if minimized and brings it into focus.
-  ipcMain.on('bring-to-front', (event: IpcEvent) => {
+const isSecondInstance = app.makeSingleInstance((argv, workingDirectory) => {
+  // Someone tried to run a second instance, we should focus our window.
+  if (mainWindow) {
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
     }
     mainWindow.focus();
-  });
+  }
 
-  // Handle "show me where" requests from the renderer process.
-  ipcMain.on('open-image', (event: IpcEvent, basename: string) => {
-    const p = path.join(IMAGES_BASENAME, basename);
-    if (!shell.openItem(p)) {
-      console.error(`could not open image at ${p}`);
-    }
-  });
+  pushArgsToFrontend(argv);
+});
 
-  app.on('activate', () => {
-    if (!mainWindow) {
-      mainWindow = createMainWindow();
-      mainWindow.on('closed', () => {
-        mainWindow = null;
-      });
-    }
-  });
-
-  app.on('window-all-closed', () => {
-    app.quit();
-  });
-
-  app.on('browser-window-focus', () => {
-    if (mainWindow) {
-      mainWindow.webContents.send('poll-clipboard');
-    }
-  });
+if (isSecondInstance) {
+  app.quit();
 }
 
-main();
+// For now, Linux users must manually edit the application's .desktop file for this to work.
+// Typically, this is placed by AppImage at
+// ~/.local/share/applications/appimagekit-outline-manager.desktop.
+//
+// This is due to a bug in electron-builder:
+// https://github.com/electron-userland/electron-builder/issues/2759#issuecomment-463806906
+if (!app.setAsDefaultProtocolClient('outlinem')) {
+  console.error('could not set ourselves as the outlinem:// handler');
+}
+
+app.on('ready', () => {
+  const menuTemplate = menu.getMenuTemplate(debugMode);
+  if (menuTemplate.length > 0) {
+    electron.Menu.setApplicationMenu(electron.Menu.buildFromTemplate(menuTemplate));
+  }
+
+  // Register a custom protocol so we can use absolute paths in the web app.
+  // This also acts as a kind of chroot for the web app, so it cannot access
+  // the user's filesystem. Hostnames are ignored.
+  electron.protocol.registerFileProtocol(
+      'outline',
+      (request, callback) => {
+        const appPath = new URL(request.url).pathname;
+        const filesystemPath = path.join(__dirname, 'server_manager/web_app', appPath);
+        callback(filesystemPath);
+      },
+      (error) => {
+        if (error) {
+          throw new Error('Failed to register outline protocol');
+        }
+      });
+
+  createMainWindow();
+});
+
+const UPDATE_DOWNLOADED_EVENT = 'update-downloaded';
+autoUpdater.on(UPDATE_DOWNLOADED_EVENT, (ev, info) => {
+  if (mainWindow) {
+    mainWindow.webContents.send(UPDATE_DOWNLOADED_EVENT);
+  }
+});
+
+// Handle cert whitelisting requests from the renderer process.
+const trustedFingerprints = new Set<string>();
+ipcMain.on('whitelist-certificate', (event: IpcEvent, fingerprint: string) => {
+  trustedFingerprints.add(`sha256/${fingerprint}`);
+  event.returnValue = true;
+});
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  event.preventDefault();
+  callback(trustedFingerprints.has(certificate.fingerprint));
+});
+
+// Restores the mainWindow if minimized and brings it into focus.
+ipcMain.on('bring-to-front', (event: IpcEvent) => {
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.focus();
+});
+
+// Handle "show me where" requests from the renderer process.
+ipcMain.on('open-image', (event: IpcEvent, basename: string) => {
+  const p = path.join(IMAGES_BASENAME, basename);
+  if (!shell.openItem(p)) {
+    console.error(`could not open image at ${p}`);
+  }
+});
+
+app.on('activate', () => {
+  if (!mainWindow) {
+    createMainWindow();
+    mainWindow.on('closed', () => {
+      mainWindow = null;
+    });
+  }
+});
+
+app.on('window-all-closed', () => {
+  app.quit();
+});
+
+app.on('browser-window-focus', pushClipboardToFrontend);

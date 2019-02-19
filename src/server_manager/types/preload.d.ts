@@ -32,5 +32,6 @@ declare function runDigitalOceanOauth(): OauthSession;
 
 declare function bringToFront(): void;
 
-// Adds a callback for when the main process wants us to check the clipboard.
-declare function setClipboardHandler(callback: (contents: string) => void): void;
+// Adds a callback for when the main process wants us to scan some text for a server config, e.g.
+// clipboard contents or command-line args.
+declare function setServerConfigHandler(callback: (s: string) => void): void;
