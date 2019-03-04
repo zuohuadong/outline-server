@@ -1,0 +1,18 @@
+{
+  "name": "outline-manager",
+  "productName": "Outline Manager",
+  "version": "1.0.0",
+  "dependencies": {
+    "@sentry/electron": "^0.8.1",
+    "electron-updater": "3.2.3"
+  },
+  "devDependencies": {
+    "@types/bytes": "^3.0.0",
+    "@types/node-forge": "^0.7.11",
+    "@types/request": "^2.47.1",
+    "@types/semver": "^5.5.0",
+    "electron": "^2.0.16",
+    "electron-builder": "20.34.0",
+    "electron-icon-maker": "^0.0.4"
+  }
+}

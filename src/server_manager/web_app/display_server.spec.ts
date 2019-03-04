@@ -25,7 +25,7 @@ describe('DisplayServerRepository', () => {
     const repository = new DisplayServerRepository(new InMemoryStorage());
     repository.addServer(displayServer);
 
-    expect(displayServer).toEqual(repository.findServer(displayServer.id));
+    expect(repository.findServer(displayServer.id)).toEqual(displayServer);
   });
 
   it('lists servers', () => {
@@ -73,9 +73,18 @@ describe('DisplayServerRepository', () => {
       DisplayServerRepository.SERVERS_STORAGE_KEY,
       JSON.stringify([displayServer1, displayServer2])
     ]]);
+
     const repository = new DisplayServerRepository(new InMemoryStorage(store));
-    expect(repository.findServer(displayServer1.id)).toEqual(objectContaining(displayServer1));
-    expect(repository.findServer(displayServer2.id)).toEqual(objectContaining(displayServer2));
+    let foundServer = repository.findServer(displayServer1.id);
+    if (!foundServer) {
+      throw new Error('server not found');
+    }
+    expect(foundServer).toEqual(objectContaining(displayServer1));
+    foundServer = repository.findServer(displayServer2.id);
+    if (!foundServer) {
+      throw new Error('server not found');
+    }
+    expect(foundServer).toEqual(objectContaining(displayServer2));
   });
 
   it('loads existing servers unsynced', () => {
@@ -85,6 +94,9 @@ describe('DisplayServerRepository', () => {
         new Map([[DisplayServerRepository.SERVERS_STORAGE_KEY, JSON.stringify([displayServer])]]);
     const repository = new DisplayServerRepository(new InMemoryStorage(store));
     const foundServer = repository.findServer(displayServer.id);
+    if (!foundServer) {
+      throw new Error('server not found');
+    }
     expect(foundServer.isSynced).toBeFalsy();
   });
 
@@ -98,8 +110,12 @@ describe('DisplayServerRepository', () => {
     expect(repository.findServer(displayServerToRemove.id)).toEqual(displayServerToRemove);
     repository.removeServer(displayServerToRemove);
     expect(repository.findServer(displayServerToRemove.id)).toBeUndefined();
-    expect(repository.findServer(displayServerToKeep.id))
-        .toEqual(objectContaining(displayServerToKeep));
+
+    const foundServer = repository.findServer(displayServerToKeep.id);
+    if (!foundServer) {
+      throw new Error('server not found');
+    }
+    expect(foundServer).toEqual(objectContaining(displayServerToKeep));
   });
 
   it('persists servers', () => {

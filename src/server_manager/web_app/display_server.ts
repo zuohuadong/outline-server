@@ -66,7 +66,7 @@ export class DisplayServerRepository {
     this.storeServers();
   }
 
-  findServer(serverId: string): DisplayServer {
+  findServer(serverId: string): DisplayServer|undefined {
     return this.servers.find(server => server.id === serverId);
   }
 
@@ -74,7 +74,7 @@ export class DisplayServerRepository {
     this.storage.setItem(DisplayServerRepository.LAST_DISPLAYED_SERVER_STORAGE_KEY, serverId);
   }
 
-  getLastDisplayedServerId(): string {
+  getLastDisplayedServerId(): string|null {
     return this.storage.getItem(DisplayServerRepository.LAST_DISPLAYED_SERVER_STORAGE_KEY);
   }
 

@@ -31,8 +31,9 @@ export interface ServerConfig {
 }
 
 export class ShadowboxServer implements server.Server {
-  private managementApiAddress: string;
-  private serverConfig: ServerConfig;
+  // TODO: actually set by isHealthy (wut)
+  private managementApiAddress!: string;
+  private serverConfig!: ServerConfig;
 
   constructor() {}
 

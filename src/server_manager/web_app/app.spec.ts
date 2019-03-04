@@ -199,7 +199,8 @@ describe('App', () => {
        const managedSeverRepository = new FakeManagedServerRepository();
        // Manually create the server since the DO repository server factory function is synchronous.
        await managedSeverRepository.createUninstalledServer();
-       const app = createTestApp(polymerAppRoot, tokenManager, null, null, managedSeverRepository);
+       const app = createTestApp(
+           polymerAppRoot, tokenManager, undefined, undefined, managedSeverRepository);
        polymerAppRoot.events.once('screen-change', (currentScreen) => {
          expect(currentScreen).toEqual(AppRootScreen.INTRO);
          polymerAppRoot.events.once('screen-change', (currentScreen) => {
@@ -324,7 +325,7 @@ class FakeServer implements server.Server {
   private name = 'serverName';
   private metricsEnabled = false;
   private id: string;
-  apiUrl: string;
+  apiUrl: string|undefined;
   constructor() {
     this.id = Math.random().toString();
   }
@@ -411,8 +412,8 @@ class FakeManualServerRepository implements server.ManualServerRepository {
 }
 
 class InMemoryDigitalOceanTokenManager implements TokenManager {
-  public token: string;
-  getStoredToken(): string {
+  public token!: string|null;
+  getStoredToken(): string|null {
     return this.token;
   }
   removeTokenFromStorage() {
@@ -501,7 +502,7 @@ class FakeDisplayServerRepository extends DisplayServerRepository {
 }
 
 export class InMemoryStorage implements Storage {
-  readonly length: number;
+  readonly length!: number;
   [key: string]: {};
   [index: number]: string;
 

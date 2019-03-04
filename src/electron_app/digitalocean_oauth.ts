@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// <reference path='../types/ambient/preload.d.ts'/>
+
 import * as bodyParser from 'body-parser';
 import * as crypto from 'crypto';
 import * as electron from 'electron';

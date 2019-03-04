@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// <reference path='../../types/ambient/preload.d.ts'/>
+
 import * as sentry from '@sentry/electron';
 import * as events from 'events';
 
@@ -79,9 +81,9 @@ type DigitalOceanServerRepositoryFactory = (session: digitalocean_api.DigitalOce
     server.ManagedServerRepository;
 
 export class App {
-  private digitalOceanRepository: server.ManagedServerRepository;
-  private selectedServer: server.Server;
-  private serverBeingCreated: server.ManagedServer;
+  private digitalOceanRepository: server.ManagedServerRepository|undefined;
+  private selectedServer: server.Server|undefined;
+  private serverBeingCreated: server.ManagedServer|undefined;
 
   constructor(
       private appRoot: Polymer, private readonly appUrl: string, private readonly version: string,
@@ -191,7 +193,9 @@ export class App {
     });
 
     appRoot.addEventListener('CancelServerCreationRequested', (event: PolymerEvent) => {
-      this.cancelServerCreation(this.selectedServer);
+      if (this.selectedServer) {
+        this.cancelServerCreation(this.selectedServer);
+      }
     });
 
     appRoot.addEventListener('OpenImageRequested', (event: PolymerEvent) => {
@@ -233,7 +237,8 @@ export class App {
           if (!!serverBeingCreated) {
             this.syncServerCreationToUi(serverBeingCreated);
           }
-          return this.syncServersToDisplay(manualServers.concat(installedManagedServers));
+          return this.syncServersToDisplay(
+              (manualServers as server.Server[]).concat(installedManagedServers));
         })
         .then(() => {
           this.maybeShowLastDisplayedServer();
@@ -310,9 +315,10 @@ export class App {
   }
 
   // Retrieves the server associated with `displayServer`.
-  private async getServerFromRepository(displayServer: DisplayServer): Promise<server.Server|null> {
+  private async getServerFromRepository(displayServer: DisplayServer):
+      Promise<server.Server|undefined> {
     const apiManagementUrl = displayServer.id;
-    let server: server.Server = null;
+    let server: server.Server|undefined;
     if (displayServer.isManaged) {
       if (!!this.digitalOceanRepository) {
         // Fetch the servers from memory to prevent a leak that happens due to polling when creating
@@ -337,9 +343,9 @@ export class App {
     this.waitForManagedServerCreation();
   }
 
-  private getDisplayServerBeingCreated(): DisplayServer {
+  private getDisplayServerBeingCreated(): DisplayServer|undefined {
     if (!this.serverBeingCreated) {
-      return null;
+      return undefined;
     }
     // Set name to the default server name for this region. Because the server
     // is still being created, the getName REST API will not yet be available.
@@ -510,7 +516,7 @@ export class App {
               this.appRoot.showError(
                   `${displayServer.name} no longer present in your DigitalOcean account.`);
               this.removeServerFromDisplay(displayServer);
-              this.selectedServer = null;
+              this.selectedServer = undefined;
               this.appRoot.selectedServer = null;
               this.showIntro();
             }
@@ -655,6 +661,9 @@ export class App {
     // The region picker initially shows all options as disabled. Options are enabled by this code,
     // after checking which regions are available.
     this.digitalOceanRetry(() => {
+          if (!this.digitalOceanRepository) {
+            throw new Error('not connected to digitalocean');
+          }
           return this.digitalOceanRepository.getRegionMap();
         })
         .then(
@@ -681,23 +690,34 @@ export class App {
     this.appRoot.selectedServer = this.getDisplayServerBeingCreated();
     // Update UI.  Only show cancel button if the server has not yet finished
     // installation, to prevent accidental deletion when restarting.
-    const showCancelButton = !this.serverBeingCreated.isInstallCompleted();
+    const showCancelButton =
+        this.serverBeingCreated && (!this.serverBeingCreated.isInstallCompleted());
     this.appRoot.showProgress(this.appRoot.selectedServer.name, showCancelButton);
   }
 
+  // TODO: shouldn't this *return* the promise?
   private waitForManagedServerCreation(tryAgain = false): void {
+    if (!this.serverBeingCreated) {
+      return;
+    }
+
     this.serverBeingCreated.waitOnInstall(tryAgain)
         .then(() => {
           // Unset the instance variable before syncing the server so the UI does not display it.
           const server = this.serverBeingCreated;
-          this.serverBeingCreated = null;
-          return this.syncAndShowServer(server);
+          this.serverBeingCreated = undefined;
+          if (server) {
+            this.syncAndShowServer(server);
+          }
         })
         .catch((e) => {
           console.log(e);
           if (e instanceof errors.DeletedServerError) {
             // The user deleted this server, no need to show an error or delete it again.
-            this.serverBeingCreated = null;
+            this.serverBeingCreated = undefined;
+            return;
+          }
+          if (!this.serverBeingCreated) {
             return;
           }
           const errorMessage = this.serverBeingCreated.isInstallCompleted() ?
@@ -708,10 +728,13 @@ export class App {
                   null,  // Don't display any title.
                   errorMessage, ['Delete this server', 'Try again'])
               .then((clickedButtonIndex: number) => {
+                if (!this.serverBeingCreated) {
+                  return;
+                }
                 if (clickedButtonIndex === 0) {  // user clicked 'Delete this server'
                   console.info('Deleting unreachable server');
                   this.serverBeingCreated.getHost().delete().then(() => {
-                    this.serverBeingCreated = null;
+                    this.serverBeingCreated = undefined;
                     this.showCreateServer();
                   });
                 } else if (clickedButtonIndex === 1) {  // user clicked 'Try again'.
@@ -727,6 +750,9 @@ export class App {
   public createDigitalOceanServer(regionId: server.RegionId) {
     return this
         .digitalOceanRetry(() => {
+          if (!this.digitalOceanRepository) {
+            throw new Error('not connected to digitalocean');
+          }
           return this.digitalOceanRepository.createServer(regionId);
         })
         .then((server) => {
@@ -876,6 +902,10 @@ export class App {
   }
 
   private addAccessKey() {
+    if (!this.selectedServer) {
+      return;
+    }
+
     this.selectedServer.addAccessKey()
         .then((serverAccessKey: server.AccessKey) => {
           const uiAccessKey = convertToUiAccessKey(serverAccessKey);
@@ -888,6 +918,10 @@ export class App {
   }
 
   private renameAccessKey(accessKeyId: string, newName: string, entry: Polymer) {
+    if (!this.selectedServer) {
+      return;
+    }
+
     this.selectedServer.renameAccessKey(accessKeyId, newName)
         .then(() => {
           entry.commitName();
@@ -934,6 +968,10 @@ export class App {
   }
 
   private removeAccessKey(accessKeyId: string) {
+    if (!this.selectedServer) {
+      return;
+    }
+
     this.selectedServer.removeAccessKey(accessKeyId)
         .then(() => {
           this.appRoot.getServerView(this.appRoot.selectedServer.id).removeAccessKey(accessKeyId);
@@ -945,6 +983,10 @@ export class App {
   }
 
   private deleteSelectedServer() {
+    if (!this.selectedServer) {
+      return;
+    }
+
     const serverToDelete = this.selectedServer;
     if (!isManagedServer(serverToDelete)) {
       const msg = 'cannot delete non-ManagedServer';
@@ -963,7 +1005,7 @@ export class App {
               () => {
                 this.removeServerFromDisplay(this.appRoot.selectedServer);
                 this.appRoot.selectedServer = null;
-                this.selectedServer = null;
+                this.selectedServer = undefined;
                 this.showIntro();
                 this.displayNotification('Server destroyed');
               },
@@ -977,6 +1019,10 @@ export class App {
   }
 
   private forgetSelectedServer() {
+    if (!this.selectedServer) {
+      return;
+    }
+
     const serverToForget = this.selectedServer;
     if (!isManualServer(serverToForget)) {
       const msg = 'cannot forget non-ManualServer';
@@ -992,13 +1038,17 @@ export class App {
       serverToForget.forget();
       this.removeServerFromDisplay(this.appRoot.selectedServer);
       this.appRoot.selectedServer = null;
-      this.selectedServer = null;
+      this.selectedServer = undefined;
       this.showIntro();
       this.displayNotification('Server removed');
     });
   }
 
   private setMetricsEnabled(metricsEnabled: boolean) {
+    if (!this.selectedServer) {
+      return;
+    }
+
     this.selectedServer.setMetricsEnabled(metricsEnabled)
         .then(() => {
           // Change metricsEnabled property on polymer element to update display.
@@ -1011,8 +1061,16 @@ export class App {
   }
 
   private renameServer(newName: string): void {
+    if (!this.selectedServer) {
+      return;
+    }
+
     this.selectedServer.setName(newName)
         .then(() => {
+          if (!this.selectedServer) {
+            throw new Error('no server selected');
+          }
+
           this.appRoot.getServerView(this.appRoot.selectedServer.id).serverName = newName;
           return this.syncAndShowServer(this.selectedServer);
         })
@@ -1028,7 +1086,7 @@ export class App {
       throw new Error(msg);
     }
     serverToCancel.getHost().delete().then(() => {
-      this.serverBeingCreated = null;
+      this.serverBeingCreated = undefined;
       this.removeServerFromDisplay(this.appRoot.selectedServer);
       this.appRoot.selectedServer = null;
       this.showCreateServer();

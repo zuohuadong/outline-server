@@ -19,6 +19,7 @@
   "workspaces": [
     "src/*"
   ],
+  "main": "build/electron_app/index.js",
   "husky": {
     "hooks": {
       "pre-commit": "yarn tslint --fix 'src/**/*.ts' -e '**/bower_components/**' -e '**/node_modules/**' && yarn git-clang-format"

@@ -95,9 +95,9 @@ export interface ManagedServerHost {
   getHostId(): string;
 }
 
-export class DataAmount { terabytes: number; }
+export interface DataAmount { terabytes: number; }
 
-export class MonetaryCost {
+export interface MonetaryCost {
   // Value in US dollars.
   usd: number;
 }

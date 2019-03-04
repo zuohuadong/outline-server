@@ -15,8 +15,8 @@
 import * as electron from 'electron';
 
 export class LoadingWindow {
-  private loadingBrowserWindow: electron.BrowserWindow;
-  private timeoutId: NodeJS.Timer;
+  private loadingBrowserWindow: electron.BrowserWindow|undefined;
+  private timeoutId: NodeJS.Timer|undefined;
 
   public constructor(private mainWindow: Electron.BrowserWindow, private url: string) {}
 
@@ -27,14 +27,9 @@ export class LoadingWindow {
     }
 
     this.timeoutId = global.setTimeout(() => {
-      this.timeoutId = null;
-      this.loadingBrowserWindow = new electron.BrowserWindow({
-        webPreferences: {
-          nodeIntegration: false,
-          nativeWindowOpen: true,
-          webviewTag: false
-        }
-      });
+      this.timeoutId = undefined;
+      this.loadingBrowserWindow = new electron.BrowserWindow(
+          {webPreferences: {nodeIntegration: false, nativeWindowOpen: true, webviewTag: false}});
       this.loadingBrowserWindow.loadURL(this.url);
       this.loadingBrowserWindow.setBounds(this.mainWindow.getBounds());
       this.mainWindow.hide();
@@ -48,7 +43,7 @@ export class LoadingWindow {
     }
     if (this.loadingBrowserWindow) {
       this.loadingBrowserWindow.close();
-      this.loadingBrowserWindow = null;
+      this.loadingBrowserWindow = undefined;
     }
     this.mainWindow.show();
   }

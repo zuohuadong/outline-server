@@ -234,7 +234,7 @@ class DigitaloceanServer extends ShadowboxServer implements server.ManagedServer
   }
 
   // Gets the value for the given key, stored in the DigitalOcean tags.
-  private getTagValue(key: string): string {
+  private getTagValue(key: string): string|null {
     const tagPrefix = makeKeyValueTagPrefix(key);
     for (const tag of this.dropletInfo.tags) {
       if (!startsWithCaseInsensitive(tag, tagPrefix)) {
@@ -245,9 +245,9 @@ class DigitaloceanServer extends ShadowboxServer implements server.ManagedServer
         return hexToString(encodedData);
       } catch (e) {
         console.error('error decoding hex string');
-        return null;
       }
     }
+    return null;
   }
 
   // Returns the public ipv4 address of this server.

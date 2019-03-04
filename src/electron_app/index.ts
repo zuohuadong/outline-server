@@ -85,7 +85,7 @@ function createMainWindow() {
   const webAppUrl = getWebAppUrl();
   win.loadURL(webAppUrl);
 
-  const loadingWindow = new LoadingWindow(win, 'outline://web_app/loading.html');
+  const loadingWindow = new LoadingWindow(win, 'outline://xxx/loading.html');
   const LOADING_WINDOW_DELAY_MS = 3000;
 
   const handleNavigation = (event: Event, url: string) => {
@@ -104,7 +104,7 @@ function createMainWindow() {
   win.webContents.on('will-navigate', (event: Event, url: string) => {
     handleNavigation(event, url);
   });
-  win.webContents.on('new-window', handleNavigation.bind(this));
+  win.webContents.on('new-window', handleNavigation);
   win.webContents.on('did-finish-load', () => {
     loadingWindow.hide();
 
@@ -150,7 +150,7 @@ function getWebAppUrl() {
 
 function main() {
   // prevent window being garbage collected
-  let mainWindow: Electron.BrowserWindow;
+  let mainWindow: Electron.BrowserWindow|undefined;
 
   // Mark secure to avoid mixed content warnings when loading DigitalOcean pages via https://.
   electron.protocol.registerStandardSchemes(['outline'], {secure: true});
@@ -182,7 +182,7 @@ function main() {
         'outline',
         (request, callback) => {
           const appPath = new URL(request.url).pathname;
-          const filesystemPath = path.join(__dirname, 'server_manager/web_app', appPath);
+          const filesystemPath = path.join(app.getAppPath(), 'build', 'server_manager', appPath);
           callback(filesystemPath);
         },
         (error) => {
@@ -193,18 +193,21 @@ function main() {
     mainWindow = createMainWindow();
   });
 
-  const UPDATE_DOWNLOADED_EVENT = 'update-downloaded';
-  autoUpdater.on(UPDATE_DOWNLOADED_EVENT, (ev, info) => {
-    if (mainWindow) {
-      mainWindow.webContents.send(UPDATE_DOWNLOADED_EVENT);
-    }
-  });
+  // const UPDATE_DOWNLOADED_EVENT = 'update-downloaded';
+  // autoUpdater.on(UPDATE_DOWNLOADED_EVENT, (ev, info) => {
+  //   if (mainWindow) {
+  //     mainWindow.webContents.send(UPDATE_DOWNLOADED_EVENT);
+  //   }
+  // });
 
   // Handle cert whitelisting requests from the renderer process.
   const trustedFingerprints = new Set<string>();
+  console.log('yeah setting listener');
   ipcMain.on('whitelist-certificate', (event: IpcEvent, fingerprint: string) => {
+    console.log('YOYOYO');
     trustedFingerprints.add(`sha256/${fingerprint}`);
     event.returnValue = true;
+    console.log('YOYOYO2');
   });
   app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
     event.preventDefault();
@@ -213,6 +216,10 @@ function main() {
 
   // Restores the mainWindow if minimized and brings it into focus.
   ipcMain.on('bring-to-front', (event: IpcEvent) => {
+    if (!mainWindow) {
+      return;
+    }
+
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
     }
@@ -231,7 +238,7 @@ function main() {
     if (!mainWindow) {
       mainWindow = createMainWindow();
       mainWindow.on('closed', () => {
-        mainWindow = null;
+        mainWindow = undefined;
       });
     }
   });

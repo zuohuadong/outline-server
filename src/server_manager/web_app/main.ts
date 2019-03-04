@@ -61,5 +61,8 @@ document.addEventListener('WebComponentsReady', () => {
 // "https://sentry.io/api/214597/store/?sentry_version=7&sentry_key=ee9db4eb185b471ca08c8eb5efbf61f1"
 function getSentryApiUrl(sentryDsn: string): string {
   const matches = sentryDsn.match(/https:\/\/(\S+)@sentry\.io\/(\d+)/);
+  if (!matches || matches.length < 3) {
+    throw new Error('cannot parse DSN');
+  }
   return `https://sentry.io/api/${matches[2]}/store/?sentry_version=7&sentry_key=${matches[1]}`;
 }

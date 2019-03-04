@@ -14,7 +14,7 @@
 
 export interface TokenManager {
   // Returns the Oauth token, or null if unavailable.
-  getStoredToken(): string;
+  getStoredToken(): string|null;
   // Writes the token to storage.
   writeTokenToStorage(token: string): void;
   // Removes the token from storage.
@@ -30,7 +30,7 @@ export class DigitalOceanTokenManager implements TokenManager {
   // Searches the current URL (post-OAuth) and local storage for a DigitalOcean
   // access token. The token is not checked for validity as this would require
   // an extra roundtrip to DigitalOcean.
-  getStoredToken(): string {
+  getStoredToken(): string|null {
     const tokenFromStorage = this.getTokenFromStorage();
     if (tokenFromStorage) {
       console.info('found access token in local storage');
@@ -49,7 +49,7 @@ export class DigitalOceanTokenManager implements TokenManager {
     localStorage.removeItem(this.DIGITALOCEAN_TOKEN_STORAGE_KEY);
   }
 
-  private getTokenFromStorage(): string {
+  private getTokenFromStorage(): string|null {
     return localStorage.getItem(this.DIGITALOCEAN_TOKEN_STORAGE_KEY);
   }
 }
