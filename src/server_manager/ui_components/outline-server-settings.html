@@ -132,7 +132,7 @@
             <h3>[[localize('settings-server-info')]]</h3>
             <paper-input id="serverNameInput" class="server-name" value="{{name}}" label="[[localize('settings-server-name')]]" always-float-label maxlength="100" on-keydown="_handleNameInputKeyDown" on-blur="_handleNameInputBlur"></paper-input>
             <p class="detail">[[localize('settings-server-rename')]]</p>
-            <paper-input readonly id="serverPortForNewAccessKeys" value="[[serverPortForNewAccessKeys]]" label="[[localize('settings-access-key-port')]]" hidden$="[[!serverPortForNewAccessKeys]]" always-float-label maxlength="100"></paper-input>
+            <paper-input class="server-port-for-new-access-keys" value="{{serverPortForNewAccessKeys}}" label="[[localize('settings-access-key-port')]]" hidden$="[[!serverPortForNewAccessKeys]]" always-float-label maxlength="100"></paper-input>
             <paper-input readonly value="[[serverHostname]]" label="[[localize('settings-server-hostname')]]" hidden$="[[!serverHostname]]" always-float-label maxlength="100"></paper-input>
             <paper-input readonly value="[[serverManagementApiUrl]]" label="[[localize('settings-server-api-url')]]" hidden$="[[!serverManagementApiUrl]]" always-float-label maxlength="100"></paper-input>
             <paper-input readonly value="[[serverCreationDate]]" label="[[localize('settings-server-creation')]]" hidden$="[[!serverCreationDate]]" always-float-label maxlength="100"></paper-input>
