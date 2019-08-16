@@ -325,7 +325,7 @@ class FakeServer implements server.Server {
   private name = 'serverName';
   private metricsEnabled = false;
   private id: string;
-  private port: number | undefined;
+  private port: number|undefined;
   apiUrl: string;
   constructor() {
     this.id = Math.random().toString();

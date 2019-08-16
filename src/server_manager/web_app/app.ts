@@ -1046,14 +1046,17 @@ export class App {
   }
 
   private setPortForNewAccessKeys(newPort: number): void {
-    this.selectedServer.setPortForNewAccessKeys(newPort).then(() => {
-      this.appRoot.getServerView(this.appRoot.selectedServer.id).serverPortForNewAccessKeys = newPort;
-      return this.syncAndShowServer(this.selectedServer);
-    }).catch((error) => {
-      console.error(`Failed to set port for new access keys: ${error}`);
-      // TODO(cohenjon) do we need to get this translated?
-      this.appRoot.showError("Failed to set port for new access keys.");
-    });
+    this.selectedServer.setPortForNewAccessKeys(newPort)
+        .then(() => {
+          this.appRoot.getServerView(this.appRoot.selectedServer.id).serverPortForNewAccessKeys =
+              newPort;
+          return this.syncAndShowServer(this.selectedServer);
+        })
+        .catch((error) => {
+          console.error(`Failed to set port for new access keys: ${error}`);
+          // TODO(cohenjon) do we need to get this translated?
+          this.appRoot.showError('Failed to set port for new access keys.');
+        });
   }
 
   private cancelServerCreation(serverToCancel: server.Server): void {
