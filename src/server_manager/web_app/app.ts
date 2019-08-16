@@ -176,6 +176,10 @@ export class App {
       this.renameServer(event.detail.newName);
     });
 
+    appRoot.addEventListener('ServerPortForNewAccessKeysRequested', (event: PolymerEvent) => {
+      this.setPortForNewAccessKeys(event.detail.newPort);
+    });
+
     appRoot.addEventListener('CancelServerCreationRequested', (event: PolymerEvent) => {
       this.cancelServerCreation(this.selectedServer);
     });
@@ -534,7 +538,7 @@ export class App {
         return Promise.reject(e);
       }
 
-      return new Promise((resolve, reject) => {
+      return new Promise<T>((resolve, reject) => {
         this.appRoot.showConnectivityDialog((retry: boolean) => {
           if (retry) {
             this.digitalOceanRetry(f).then(resolve, reject);
@@ -1039,6 +1043,17 @@ export class App {
           console.error(`Failed to rename server: ${error}`);
           this.appRoot.showError(this.appRoot.localize('error-server-rename'));
         });
+  }
+
+  private setPortForNewAccessKeys(newPort: number): void {
+    this.selectedServer.setPortForNewAccessKeys(newPort).then(() => {
+      this.appRoot.getServerView(this.appRoot.selectedServer.id).serverPortForNewAccessKeys = newPort;
+      return this.syncAndShowServer(this.selectedServer);
+    }).catch((error) => {
+      console.error(`Failed to set port for new access keys: ${error}`);
+      // TODO(cohenjon) do we need to get this translated?
+      this.appRoot.showError("Failed to set port for new access keys.");
+    });
   }
 
   private cancelServerCreation(serverToCancel: server.Server): void {

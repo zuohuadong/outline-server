@@ -325,6 +325,7 @@ class FakeServer implements server.Server {
   private name = 'serverName';
   private metricsEnabled = false;
   private id: string;
+  private port: number | undefined;
   apiUrl: string;
   constructor() {
     this.id = Math.random().toString();
@@ -373,8 +374,12 @@ class FakeServer implements server.Server {
   getManagementApiUrl() {
     return this.apiUrl || Math.random().toString();
   }
+  setPortForNewAccessKeys(port: number): Promise<void> {
+    this.port = port;
+    return Promise.resolve();
+  }
   getPortForNewAccessKeys(): number|undefined {
-    return undefined;
+    return this.port;
   }
 }
 

@@ -58,6 +58,9 @@ export interface Server {
   // Returns the port number for new access keys.
   // Returns undefined if the server doesn't have a port set.
   getPortForNewAccessKeys(): number|undefined;
+
+  // Sets the port number for new access keys.
+  setPortForNewAccessKeys(port: number): Promise<void>;
 }
 
 // Manual servers are servers which the user has independently setup to run

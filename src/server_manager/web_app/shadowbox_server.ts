@@ -143,6 +143,18 @@ export class ShadowboxServer implements server.Server {
     }
   }
 
+  setPortForNewAccessKeys(port: number): Promise<void> {
+    console.info('Setting port for new access keys');
+    const requestOptions: RequestInit = {
+      method: 'PUT',
+      headers: new Headers({'Content-Type': 'application/json'}),
+      body: JSON.stringify({port})
+    };
+    return this.apiRequest<void>('server/port-for-new-access-keys', requestOptions).then(() => {
+      this.serverConfig.portForNewAccessKeys = port;
+    });
+  }
+
   private getServerConfig(): Promise<ServerConfig> {
     console.info('Retrieving server configuration');
     return this.apiRequest<ServerConfig>('server');

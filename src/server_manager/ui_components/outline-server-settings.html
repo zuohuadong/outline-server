@@ -132,7 +132,7 @@
             <h3>[[localize('settings-server-info')]]</h3>
             <paper-input id="serverNameInput" class="server-name" value="{{name}}" label="[[localize('settings-server-name')]]" always-float-label maxlength="100" on-keydown="_handleNameInputKeyDown" on-blur="_handleNameInputBlur"></paper-input>
             <p class="detail">[[localize('settings-server-rename')]]</p>
-            <paper-input readonly value="[[serverPortForNewAccessKeys]]" label="[[localize('settings-access-key-port')]]" hidden$="[[!serverPortForNewAccessKeys]]" always-float-label maxlength="100"></paper-input>
+            <paper-input readonly id="serverPortForNewAccessKeys" value="[[serverPortForNewAccessKeys]]" label="[[localize('settings-access-key-port')]]" hidden$="[[!serverPortForNewAccessKeys]]" always-float-label maxlength="100"></paper-input>
             <paper-input readonly value="[[serverHostname]]" label="[[localize('settings-server-hostname')]]" hidden$="[[!serverHostname]]" always-float-label maxlength="100"></paper-input>
             <paper-input readonly value="[[serverManagementApiUrl]]" label="[[localize('settings-server-api-url')]]" hidden$="[[!serverManagementApiUrl]]" always-float-label maxlength="100"></paper-input>
             <paper-input readonly value="[[serverCreationDate]]" label="[[localize('settings-server-creation')]]" hidden$="[[!serverCreationDate]]" always-float-label maxlength="100"></paper-input>
@@ -175,14 +175,18 @@
         this.initialName = name;
         this.name = name;
         this.metricsEnabled = metricsEnabled;
+        this.initialPortForNewAccessKeys = serverPortForNewAccessKeys;
       },
-      _handleNameInputKeyDown: function(event) {
+      _handleKeyDown: function(event, selector) {
         if (event.key === 'Escape') {
           this.name = this.initialName;
-          this.$.serverNameInput.blur();
+          selector.blur();
         } else if (event.key === 'Enter') {
-          this.$.serverNameInput.blur();
+          selector.blur();
         }
+      },
+      _handleNameInputKeyDown: function(event) {
+        this._handleKeyDown(event, this.$.serverName);
       },
       _handleNameInputBlur: function(event) {
         const newName = this.name;
@@ -192,8 +196,23 @@
         }
         // Fire signal if name has changed.
         if (newName !== this.initialName) {
-          this.initialName = newName
+          this.initialName = newName;
           this.fire('ServerRenameRequested', {newName});
+        }
+      },
+      _handleAccessKeyPortInputKeyDown: function(event) {
+        this._handleKeyDown(event, this.$.serverPortForNewAccessKeys);
+      },
+      _handleAccessKeyPortInputBlur: function(event) {
+        const newPort = this.serverPortForNewAccessKeys.value;
+        if (!newPort) {
+          this.serverPortForNewAccessKeys = this.initialPortForNewAccessKeys;
+          return;
+        }
+        // Fire signal if name has changed.
+        if (newPort !== this.serverPortForNewAccessKeys.value) {
+          this.initialPortForNewAccessKeys.value = newPort;
+          this.fire('ServerPortForNewAccessKeysRequested', {newPort});
         }
       },
       _metricsEnabledChanged: function(newMetricsEnabled, oldMetricsEnabled) {
