@@ -78,7 +78,7 @@ async function main() {
   const DEFAULT_PORT = 8081;
   const apiPortNumber = Number(serverConfig.data().apiPort || process.env.SB_API_PORT || DEFAULT_PORT);
   if (isNaN(apiPortNumber)) {
-    logging.error(`Invalid SB_API_PORT: ${process.env.SB_API_PORT}`);
+    logging.error(`Invalid API port: ${apiPortNumber}`);
     process.exit(1);
   }
   portProvider.addReservedPort(apiPortNumber);
