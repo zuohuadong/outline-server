@@ -28,9 +28,6 @@ LABEL shadowbox.github.release="${GITHUB_RELEASE}"
 # We use curl to detect the server's public IP.
 RUN apk add --no-cache curl
 
-# We use jq to build the JSON server config file
-RUN apk add --no-cache jq
-
 COPY src/shadowbox/scripts scripts/
 COPY src/shadowbox/scripts/update_mmdb.sh /etc/periodic/weekly/update_mmdb
 

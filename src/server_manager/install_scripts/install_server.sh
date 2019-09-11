@@ -241,23 +241,11 @@ function generate_certificate_fingerprint() {
 }
 
 function write_server_config() {
-  local readonly SERVER_CONFIG=$STATE_DIR/shadowbox_server_config.json
+  local JSON_BODY='hostname:"'${PUBLIC_HOSTNAME}'",apiPort:'${API_PORT}
   if [[ $FLAGS_KEYS_PORT != 0 ]]; then
-    local readonly CONFIG_JSON=$(jq -n\
-      --arg hostname ${PUBLIC_HOSTNAME} \
-      --arg api_port ${API_PORT} \
-      --arg keys_port $FLAGS_KEYS_PORT \
-      '{hostname:$hostname, apiPort:$api_port, portForNewAccessKeys:$keys_port}')
-  else
-    local readonly CONFIG_JSON=$(jq -n\
-      --arg hostname ${PUBLIC_HOSTNAME} \
-      --arg api_port ${API_PORT} \
-      '{hostname:$hostname, apiPort:$api_port}')
+    JSON_BODY+=',portForNewAccessKeys:'$FLAGS_KEYS_PORT
   fi
-  if [[ ! $CONFIG_JSON ]]; then
-    exit 1
-  fi
-  echo "${CONFIG_JSON}" | tee $SERVER_CONFIG
+  echo "{${JSON_BODY}}" | tee $STATE_DIR/shadowbox_server_config.json
 }
 
 function start_shadowbox() {
