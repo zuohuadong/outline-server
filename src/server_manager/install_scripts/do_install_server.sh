@@ -142,8 +142,8 @@ net.ipv4.tcp_congestion_control=bbr
 EOF
 sysctl -p
 
-log_for_sentry "Getting SB_PUBLIC_IP"
-export SB_PUBLIC_IP=$(cloud::public_ip)
+log_for_sentry "Getting public IP"
+PUBLIC_IP=$(cloud::public_ip)
 
 log_for_sentry "Initializing ACCESS_CONFIG"
 export ACCESS_CONFIG="$SHADOWBOX_DIR/access.txt"
@@ -163,7 +163,7 @@ trap finish EXIT
 
 # Run install script asynchronously, so tags can be written as soon as they are ready.
 log_for_sentry "Running install_server.sh"
-./install_server.sh&
+./install_server.sh --hostname "${PUBLIC_IP}" &
 install_pid=$!
 
 # Save tags for access information.

@@ -17,9 +17,7 @@ services:
 
   shadowbox:
     image: ${SHADOWBOX_IMAGE:-outline/shadowbox}
-    environment:
-      - SB_PUBLIC_IP=shadowbox
-      - SB_API_PORT=443
+    environment:n 
       - SB_API_PREFIX=${SB_API_PREFIX}
       - LOG_LEVEL=debug
       - SB_CERTIFICATE_FILE=/root/shadowbox/test.crt

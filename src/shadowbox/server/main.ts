@@ -65,7 +65,6 @@ async function main() {
 
   prometheus.collectDefaultMetrics({register: prometheus.register});
 
-  const proxyHostname = process.env.SB_PUBLIC_IP;
   // Default to production metrics, as some old Docker images may not have
   // SB_METRICS_URL properly set.
   const metricsCollectorUrl = process.env.SB_METRICS_URL || 'https://metrics-prod.uproxy.org';
@@ -73,26 +72,27 @@ async function main() {
     logging.warn('process.env.SB_METRICS_URL not set, using default');
   }
 
-  if (!proxyHostname) {
-    logging.error('Need to specify SB_PUBLIC_IP for invite links');
-    process.exit(1);
-  }
-
-  logging.debug(`=== Config ===`);
-  logging.debug(`SB_PUBLIC_IP: ${proxyHostname}`);
-  logging.debug(`SB_METRICS_URL: ${metricsCollectorUrl}`);
-  logging.debug(`==============`);
+  const serverConfig =
+      server_config.readServerConfig(getPersistentFilename('shadowbox_server_config.json'));
 
   const DEFAULT_PORT = 8081;
-  const apiPortNumber = Number(process.env.SB_API_PORT || DEFAULT_PORT);
+  const apiPortNumber = Number(serverConfig.data().apiPort || process.env.SB_API_PORT || DEFAULT_PORT);
   if (isNaN(apiPortNumber)) {
     logging.error(`Invalid SB_API_PORT: ${process.env.SB_API_PORT}`);
     process.exit(1);
   }
   portProvider.addReservedPort(apiPortNumber);
 
-  const serverConfig =
-      server_config.readServerConfig(getPersistentFilename('shadowbox_server_config.json'));
+  const proxyHostname = serverConfig.data().hostname || process.env.SB_API_PORT;
+  if (!proxyHostname) {
+    logging.error('Need to specify hostname in the server config or SB_PUBLIC_IP for invite links');
+    process.exit(1);
+  }
+
+  logging.debug(`=== Config ===`);
+  logging.debug(`Proxy Hostname: ${proxyHostname}`);
+  logging.debug(`SB_METRICS_URL: ${metricsCollectorUrl}`);
+  logging.debug(`==============`);
 
   logging.info('Starting...');
 

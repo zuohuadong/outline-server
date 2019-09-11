@@ -240,30 +240,31 @@ function generate_certificate_fingerprint() {
   output_config "certSha256:$CERT_HEX_FINGERPRINT"
 }
 
-function join() {
-  local IFS="$1"
-  shift
-  echo "$*"
-}
-
-function write_config() {
-  declare -a config=()
+function write_server_config() {
+  local readonly SERVER_CONFIG=$STATE_DIR/shadowbox_server_config.json
   if [[ $FLAGS_KEYS_PORT != 0 ]]; then
-    config+=("\"portForNewAccessKeys\":$FLAGS_KEYS_PORT")
+    local readonly CONFIG_JSON=$(jq -n\
+      --arg hostname ${PUBLIC_HOSTNAME} \
+      --arg api_port ${API_PORT} \
+      --arg keys_port $FLAGS_KEYS_PORT \
+      '{hostname:$hostname, apiPort:$api_port, portForNewAccessKeys:$keys_port}')
+  else
+    local readonly CONFIG_JSON=$(jq -n\
+      --arg hostname ${PUBLIC_HOSTNAME} \
+      --arg api_port ${API_PORT} \
+      '{hostname:$hostname, apiPort:$api_port}')
   fi
-  if [[ ${#config[@]} > 0 ]]; then
-    echo "{"$(join , "${config[@]}")"}" > $STATE_DIR/shadowbox_server_config.json
+  if [[ ! $CONFIG_JSON ]]; then
+    exit 1
   fi
+  echo "${CONFIG_JSON}" | tee $SERVER_CONFIG
 }
 
 function start_shadowbox() {
-  # TODO(fortuna): Write PUBLIC_HOSTNAME and API_PORT to config file,
-  # rather than pass in the environment.
   declare -a docker_shadowbox_flags=(
     --name shadowbox --restart=always --net=host
     -v "${STATE_DIR}:${STATE_DIR}"
     -e "SB_STATE_DIR=${STATE_DIR}"
-    -e "SB_PUBLIC_IP=${PUBLIC_HOSTNAME}"
     -e "SB_API_PORT=${API_PORT}"
     -e "SB_API_PREFIX=${SB_API_PREFIX}"
     -e "SB_CERTIFICATE_FILE=${SB_CERTIFICATE_FILE}"
@@ -398,7 +399,7 @@ install_shadowbox() {
   run_step "Generating secret key" generate_secret_key
   run_step "Generating TLS certificate" generate_certificate
   run_step "Generating SHA-256 certificate fingerprint" generate_certificate_fingerprint
-  run_step "Writing config" write_config
+  run_step "Writing config" write_server_config
 
   # TODO(dborkan): if the script fails after docker run, it will continue to fail
   # as the names shadowbox and watchtower will already be in use.  Consider
