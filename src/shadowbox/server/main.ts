@@ -24,7 +24,7 @@ import {PortProvider} from '../infrastructure/get_port';
 import * as json_config from '../infrastructure/json_config';
 import * as logging from '../infrastructure/logging';
 import {PrometheusClient, runPrometheusScraper} from '../infrastructure/prometheus_scraper';
-import {RolloutTracker} from '../infrastructure/rollout';	
+import {RolloutTracker} from '../infrastructure/rollout';
 import {AccessKeyId} from '../model/access_key';
 
 import {PrometheusManagerMetrics} from './manager_metrics';
@@ -69,6 +69,7 @@ function createRolloutTracker(serverConfig: json_config.JsonConfig<server_config
 }
 
 async function main() {
+  console.log('HOLAAAAAAA');
   const verbose = process.env.LOG_LEVEL === 'debug';
   const portProvider = new PortProvider();
   const accessKeyConfig = json_config.loadFileConfig<AccessKeyConfigJson>(

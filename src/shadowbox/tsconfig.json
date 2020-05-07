@@ -5,8 +5,10 @@
     "noImplicitAny": false,
     "noImplicitThis": true,
     "module": "commonjs",
+    // "moduleResolution": "node"
     "rootDir": ".",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "sourceMap": true
   },
   "include": [
     "server/main.ts",
