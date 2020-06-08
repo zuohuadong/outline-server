@@ -14,11 +14,11 @@
 
 import {EventEmitter} from 'eventemitter3';
 
-import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
-import {TokenManager} from '../providers/digitalocean/digitalocean_oauth';
 import {InMemoryStorage} from '../infrastructure/memory_storage';
 import * as server from '../model/server';
 import {Surveys} from '../model/survey';
+import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
+import {TokenManager} from '../providers/digitalocean/digitalocean_oauth';
 
 import {App} from './app';
 import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';

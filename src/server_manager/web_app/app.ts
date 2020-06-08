@@ -20,13 +20,12 @@ import * as errors from '../infrastructure/errors';
 import {sleep} from '../infrastructure/sleep';
 import * as server from '../model/server';
 import {Surveys} from '../model/survey';
-import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
-import {parseManualServerConfig} from './management_urls';
-
 import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
 import {TokenManager} from '../providers/digitalocean/digitalocean_oauth';
 import * as digitalocean_server from '../providers/digitalocean/digitalocean_server';
 
+import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
+import {parseManualServerConfig} from './management_urls';
 import {AppRoot} from './ui_components/app-root.js';
 import {DisplayAccessKey, DisplayDataAmount, ServerView} from './ui_components/outline-server-view.js';
 
@@ -120,7 +119,8 @@ export class App {
   constructor(
       private appRoot: AppRoot, private readonly version: string,
       private createDigitalOceanSession: digitalocean_api.DigitalOceanSessionFactory,
-      private createDigitalOceanServerRepository: digitalocean_server.DigitalOceanServerRepositoryFactory,
+      private createDigitalOceanServerRepository:
+          digitalocean_server.DigitalOceanServerRepositoryFactory,
       private manualServerRepository: server.ManualServerRepository,
       private displayServerRepository: DisplayServerRepository,
       private digitalOceanTokenManager: TokenManager, private surveys: Surveys) {
