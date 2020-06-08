@@ -17,6 +17,7 @@ import * as net from 'net';
 import {InMemoryConfig, JsonConfig} from '../infrastructure/json_config';
 import {AccessKey, AccessKeyRepository, DataLimit} from '../model/access_key';
 
+import {ShadowboxAccessService} from './access_service';
 import {ManagerMetrics} from './manager_metrics';
 import {ShadowsocksManagerService} from './manager_service';
 import {FakePrometheusClient, FakeShadowsocksServer} from './mocks/mocks';
@@ -653,6 +654,7 @@ class ShadowsocksManagerServiceBuilder {
   private accessKeys_: AccessKeyRepository = null;
   private managerMetrics_: ManagerMetrics = null;
   private metricsPublisher_: SharedMetricsPublisher = null;
+  private accessService_: ShadowboxAccessService;
 
   defaultServerName(name: string): ShadowsocksManagerServiceBuilder {
     this.defaultServerName_ = name;
@@ -669,6 +671,11 @@ class ShadowsocksManagerServiceBuilder {
     return this;
   }
 
+  accessServer(service: ShadowboxAccessService): ShadowsocksManagerServiceBuilder {
+    this.accessService_ = service;
+    return this;
+  }
+
   managerMetrics(metrics: ManagerMetrics): ShadowsocksManagerServiceBuilder {
     this.managerMetrics_ = metrics;
     return this;
@@ -682,7 +689,7 @@ class ShadowsocksManagerServiceBuilder {
   build(): ShadowsocksManagerService {
     return new ShadowsocksManagerService(
         this.defaultServerName_, this.serverConfig_, this.accessKeys_, this.managerMetrics_,
-        this.metricsPublisher_);
+        this.metricsPublisher_, this.accessService_);
   }
 }
 

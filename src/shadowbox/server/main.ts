@@ -27,13 +27,16 @@ import * as logging from '../infrastructure/logging';
 import {PrometheusClient, startPrometheus} from '../infrastructure/prometheus_scraper';
 import {RolloutTracker} from '../infrastructure/rollout';
 import {AccessKeyId} from '../model/access_key';
+import {AccessServiceConfig} from '../model/access_service';
 
+import {ShadowboxAccessService, ShadowboxAccessServiceApi} from './access_service';
 import {PrometheusManagerMetrics} from './manager_metrics';
 import {bindService, ShadowsocksManagerService} from './manager_service';
 import {OutlineShadowsocksServer} from './outline_shadowsocks_server';
 import {AccessKeyConfigJson, ServerAccessKeyRepository} from './server_access_key';
 import * as server_config from './server_config';
 import {OutlineSharedMetricsPublisher, PrometheusUsageMetrics, RestMetricsCollectorClient, SharedMetricsPublisher} from './shared_metrics';
+
 
 const APP_BASE_DIR = path.join(__dirname, '..');
 const DEFAULT_STATE_DIR = '/root/shadowbox/persisted-state';
@@ -186,9 +189,22 @@ async function main() {
   const metricsCollector = new RestMetricsCollectorClient(metricsCollectorUrl);
   const metricsPublisher: SharedMetricsPublisher = new OutlineSharedMetricsPublisher(
       new RealClock(), serverConfig, metricsReader, toMetricsId, metricsCollector);
+
+  const apiPrefix = process.env.SB_API_PREFIX ? `/${process.env.SB_API_PREFIX}` : '';
+  const accessServiceApi =
+      new ShadowboxAccessServiceApi(`https://127.0.0.1:${apiPortNumber}/${apiPrefix}`);
+  const accessServiceConfig = serverConfig.data().accessServiceConfig;
+  const accessService = new ShadowboxAccessService(
+      accessServiceApi, portProvider, getPersistentStateDir(), accessServiceConfig);
+  if (accessServiceConfig) {
+    logging.info('Starting access service from config');
+    portProvider.addReservedPort(accessServiceConfig.port);
+    await accessService.start();
+  }
+
   const managerService = new ShadowsocksManagerService(
       process.env.SB_DEFAULT_SERVER_NAME || 'Outline Server', serverConfig, accessKeyRepository,
-      managerMetrics, metricsPublisher);
+      managerMetrics, metricsPublisher, accessService);
 
   const certificateFilename = process.env.SB_CERTIFICATE_FILE;
   const privateKeyFilename = process.env.SB_PRIVATE_KEY_FILE;
@@ -204,7 +220,6 @@ async function main() {
   apiServer.pre(restify.pre.sanitizePath());
 
   // All routes handlers
-  const apiPrefix = process.env.SB_API_PREFIX ? `/${process.env.SB_API_PREFIX}` : '';
   apiServer.use(restify.plugins.jsonp());
   apiServer.use(restify.plugins.bodyParser({mapParams: true}));
   apiServer.use(cors.actual);
@@ -218,8 +233,11 @@ async function main() {
 }
 
 function getPersistentFilename(file: string): string {
-  const stateDir = process.env.SB_STATE_DIR || DEFAULT_STATE_DIR;
-  return path.join(stateDir, file);
+  return path.join(getPersistentStateDir(), file);
+}
+
+function getPersistentStateDir() {
+  return process.env.SB_STATE_DIR || DEFAULT_STATE_DIR;
 }
 
 function getBinaryFilename(file: string): string {

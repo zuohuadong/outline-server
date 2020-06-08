@@ -16,6 +16,7 @@ import * as uuidv4 from 'uuid/v4';
 
 import * as json_config from '../infrastructure/json_config';
 import {DataLimit} from '../model/access_key';
+import {AccessServiceConfig} from '../model/access_service';
 
 // Serialized format for the server config.
 // WARNING: Renaming fields will break backwards-compatibility.
@@ -37,6 +38,8 @@ export interface ServerConfigJson {
   hostname?: string;
   // Data transfer limit applied to all access keys.
   accessKeyDataLimit?: DataLimit;
+  // Configuration for the access service associated to this server.
+  accessServiceConfig?: AccessServiceConfig;
 }
 
 // Serialized format for rollouts.

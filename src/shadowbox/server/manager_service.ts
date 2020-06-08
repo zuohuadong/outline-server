@@ -23,6 +23,9 @@ import {AccessKey, AccessKeyRepository, DataLimit} from '../model/access_key';
 import * as errors from '../model/errors';
 import {version} from '../package.json';
 
+import {AccessServiceConfig} from '../model/access_service';
+import {ShadowboxAccessService} from './access_service';
+
 import {ManagerMetrics} from './manager_metrics';
 import {ServerConfigJson} from './server_config';
 import {SharedMetricsPublisher} from './shared_metrics';
@@ -38,6 +41,7 @@ function accessKeyToJson(accessKey: AccessKey) {
     password: accessKey.proxyParams.password,
     port: accessKey.proxyParams.portNumber,
     method: accessKey.proxyParams.encryptionMethod,
+    host: accessKey.proxyParams.hostname,
     accessUrl: SIP002_URI.stringify(makeConfig({
       host: accessKey.proxyParams.hostname,
       port: accessKey.proxyParams.portNumber,
@@ -46,6 +50,15 @@ function accessKeyToJson(accessKey: AccessKey) {
       outline: 1,
     }))
   };
+}
+
+function accessServiceConfigToJson(accessServiceConfig: AccessServiceConfig|undefined, hostname: string) {
+  if (!accessServiceConfig) {
+    return undefined;
+  }
+  const accessServiceUrl = `https://${hostname}:${accessServiceConfig.port}/${accessServiceConfig.prefix}`;
+  const certificateFingerprintSha256 = accessServiceConfig.certificateSha256Fingerprint;
+  return {url: accessServiceUrl, certificateFingerprintSha256};
 }
 
 // Type to reflect that we receive untyped JSON request parameters.
@@ -105,6 +118,11 @@ export function bindService(
   apiServer.del(
       `${apiPrefix}/experimental/access-key-data-limit`,
       redirect(`${apiPrefix}/server/access-key-data-limit`));
+
+  apiServer.put(
+      `${apiPrefix}/experimental/access-service`, service.enableAccessService.bind(service));
+  apiServer.del(
+      `${apiPrefix}/experimental/access-service`, service.disableAccessService.bind(service));
 }
 
 // Returns a request handler that redirects a bound request path to `url` with HTTP status code 308.
@@ -132,7 +150,8 @@ export class ShadowsocksManagerService {
   constructor(
       private defaultServerName: string, private serverConfig: JsonConfig<ServerConfigJson>,
       private accessKeys: AccessKeyRepository, private managerMetrics: ManagerMetrics,
-      private metricsPublisher: SharedMetricsPublisher) {}
+      private metricsPublisher: SharedMetricsPublisher,
+      private accessService: ShadowboxAccessService) {}
 
   public renameServer(req: RequestType, res: ResponseType, next: restify.Next): void {
     logging.debug(`renameServer request ${JSON.stringify(req.params)}`);
@@ -161,7 +180,9 @@ export class ShadowsocksManagerService {
       version,
       accessKeyDataLimit: this.serverConfig.data().accessKeyDataLimit,
       portForNewAccessKeys: this.serverConfig.data().portForNewAccessKeys,
-      hostnameForAccessKeys: this.serverConfig.data().hostname
+      hostnameForAccessKeys: this.serverConfig.data().hostname,
+      // TODO(alalama): do we want a GET /access-service endpoint instead?
+      accessServiceConfig: accessServiceConfigToJson(this.serverConfig.data().accessServiceConfig, this.serverConfig.data().hostname)
     });
     next();
   }
@@ -376,5 +397,34 @@ export class ShadowsocksManagerService {
     }
     res.send(HttpSuccess.NO_CONTENT);
     next();
+  }
+
+  public async enableAccessService(req: RequestType, res: ResponseType, next: restify.Next) {
+    try {
+      logging.debug(`enableAccessService request ${JSON.stringify(req.params)}`);
+      const accessServiceConfig = await this.accessService.start();
+      this.serverConfig.data().accessServiceConfig = accessServiceConfig;
+      this.serverConfig.write();
+      const accessServiceConfigJson = accessServiceConfigToJson(accessServiceConfig, this.serverConfig.data().hostname);
+      res.send(HttpSuccess.OK, accessServiceConfigJson);
+      return next();
+    } catch (error) {
+      logging.error(error);
+      return next(new restifyErrors.InternalServerError());
+    }
+  }
+
+  public async disableAccessService(req: RequestType, res: ResponseType, next: restify.Next) {
+    try {
+      logging.debug(`disableAccessService request ${JSON.stringify(req.params)}`);
+      await this.accessService.stop();
+      delete this.serverConfig.data().accessServiceConfig;
+      this.serverConfig.write();
+      res.send(HttpSuccess.NO_CONTENT);
+      return next();
+    } catch (error) {
+      logging.error(error);
+      return next(new restifyErrors.InternalServerError());
+    }
   }
 }
