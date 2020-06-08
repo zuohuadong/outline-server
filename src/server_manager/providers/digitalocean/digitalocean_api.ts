@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as errors from '../infrastructure/errors';
+import * as errors from '../../infrastructure/errors';
+
+// The Outline DigitalOcean team's referral code:
+//   https://www.digitalocean.com/help/referral-program/
+const UNUSED_DIGITALOCEAN_REFERRAL_CODE = '5ddb4219b716';
 
 export interface DigitalOceanDropletSpecification {
   installCommand: string;
@@ -73,6 +77,8 @@ export class XhrError extends errors.OutlineError {
     super();
   }
 }
+
+export type DigitalOceanSessionFactory = (accessToken: string) => DigitalOceanSession;
 
 // This class contains methods to interact with DigitalOcean on behalf of a user.
 export interface DigitalOceanSession {

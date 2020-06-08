@@ -16,23 +16,19 @@ import * as sentry from '@sentry/electron';
 import {EventEmitter} from 'eventemitter3';
 import * as semver from 'semver';
 
-import * as digitalocean_api from '../cloud/digitalocean_api';
 import * as errors from '../infrastructure/errors';
 import {sleep} from '../infrastructure/sleep';
 import * as server from '../model/server';
 import {Surveys} from '../model/survey';
-
-import {TokenManager} from './digitalocean_oauth';
-import * as digitalocean_server from './digitalocean_server';
 import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
 import {parseManualServerConfig} from './management_urls';
 
+import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
+import {TokenManager} from '../providers/digitalocean/digitalocean_oauth';
+import * as digitalocean_server from '../providers/digitalocean/digitalocean_server';
+
 import {AppRoot} from './ui_components/app-root.js';
 import {DisplayAccessKey, DisplayDataAmount, ServerView} from './ui_components/outline-server-view.js';
-
-// The Outline DigitalOcean team's referral code:
-//   https://www.digitalocean.com/help/referral-program/
-const UNUSED_DIGITALOCEAN_REFERRAL_CODE = '5ddb4219b716';
 
 const CHANGE_KEYS_PORT_VERSION = '1.0.0';
 const DATA_LIMITS_VERSION = '1.1.0';
@@ -116,10 +112,6 @@ function localizeDate(date: Date, language: string): string {
   return date.toLocaleString(language, {year: 'numeric', month: 'long', day: 'numeric'});
 }
 
-type DigitalOceanSessionFactory = (accessToken: string) => digitalocean_api.DigitalOceanSession;
-type DigitalOceanServerRepositoryFactory = (session: digitalocean_api.DigitalOceanSession) =>
-    server.ManagedServerRepository;
-
 export class App {
   private digitalOceanRepository: server.ManagedServerRepository;
   private selectedServer: server.Server;
@@ -127,32 +119,34 @@ export class App {
 
   constructor(
       private appRoot: AppRoot, private readonly version: string,
-      private createDigitalOceanSession: DigitalOceanSessionFactory,
-      private createDigitalOceanServerRepository: DigitalOceanServerRepositoryFactory,
+      private createDigitalOceanSession: digitalocean_api.DigitalOceanSessionFactory,
+      private createDigitalOceanServerRepository: digitalocean_server.DigitalOceanServerRepositoryFactory,
       private manualServerRepository: server.ManualServerRepository,
       private displayServerRepository: DisplayServerRepository,
       private digitalOceanTokenManager: TokenManager, private surveys: Surveys) {
     appRoot.setAttribute('outline-version', this.version);
 
+    // Managed server (i.e. DigitalOcean) related events
     appRoot.addEventListener('ConnectToDigitalOcean', (event: CustomEvent) => {
       this.connectToDigitalOcean();
     });
     appRoot.addEventListener('SignOutRequested', (event: CustomEvent) => {
       this.clearCredentialsAndShowIntro();
     });
-
     appRoot.addEventListener('SetUpServerRequested', (event: CustomEvent) => {
       this.createDigitalOceanServer(event.detail.regionId);
     });
-
     appRoot.addEventListener('DeleteServerRequested', (event: CustomEvent) => {
       this.deleteSelectedServer();
     });
-
     appRoot.addEventListener('ForgetServerRequested', (event: CustomEvent) => {
       this.forgetSelectedServer();
     });
+    appRoot.addEventListener('CancelServerCreationRequested', (event: CustomEvent) => {
+      this.cancelServerCreation(this.selectedServer);
+    });
 
+    // Other events
     appRoot.addEventListener('AddAccessKeyRequested', (event: CustomEvent) => {
       this.addAccessKey();
     });
@@ -249,10 +243,6 @@ export class App {
 
     appRoot.addEventListener('ServerRenameRequested', (event: CustomEvent) => {
       this.renameServer(event.detail.newName);
-    });
-
-    appRoot.addEventListener('CancelServerCreationRequested', (event: CustomEvent) => {
-      this.cancelServerCreation(this.selectedServer);
     });
 
     appRoot.addEventListener('OpenImageRequested', (event: CustomEvent) => {

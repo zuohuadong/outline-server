@@ -14,13 +14,13 @@
 
 import './ui_components/app-root.js';
 
-import * as digitalocean_api from '../cloud/digitalocean_api';
+import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
+import {DigitalOceanTokenManager} from '../providers/digitalocean/digitalocean_oauth';
+import * as digitalocean_server from '../providers/digitalocean/digitalocean_server';
 import * as i18n from '../infrastructure/i18n';
 import {getSentryApiUrl} from '../infrastructure/sentry';
 
 import {App, DATA_LIMITS_AVAILABILITY_DATE} from './app';
-import {DigitalOceanTokenManager} from './digitalocean_oauth';
-import * as digitalocean_server from './digitalocean_server';
 import {DisplayServerRepository} from './display_server';
 import {ManualServerRepository} from './manual_server';
 import {DEFAULT_PROMPT_IMPRESSION_DELAY_MS, OutlineSurveys} from './survey';

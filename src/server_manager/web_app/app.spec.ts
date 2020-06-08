@@ -14,13 +14,13 @@
 
 import {EventEmitter} from 'eventemitter3';
 
-import * as digitalocean_api from '../cloud/digitalocean_api';
+import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
+import {TokenManager} from '../providers/digitalocean/digitalocean_oauth';
 import {InMemoryStorage} from '../infrastructure/memory_storage';
 import * as server from '../model/server';
 import {Surveys} from '../model/survey';
 
 import {App} from './app';
-import {TokenManager} from './digitalocean_oauth';
 import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
 import {AppRoot} from './ui_components/app-root.js';
 import {ServerView} from './ui_components/outline-server-view.js';
