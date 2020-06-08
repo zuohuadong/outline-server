@@ -149,6 +149,58 @@ export class App {
     });
 
     onUpdateDownloaded(this.displayAppUpdateNotification.bind(this));
+
+    /**
+     * ServerManagementApp event listeners
+     */
+    // TODO: Move these event listeners to server_management_app once they no longer
+    //       depend on `selectedServer`.
+    // Server management events
+    appRoot.addEventListener('ServerRenameRequested', (event: CustomEvent) => {
+      serverManagementApp.renameServer(this.selectedServer, event.detail.newName).then(() => {
+        this.syncAndShowServer(this.selectedServer);
+      });
+    });
+    appRoot.addEventListener('ChangePortForNewAccessKeysRequested', (event: CustomEvent) => {
+      serverManagementApp.setPortForNewAccessKeys(this.selectedServer, event.detail.validatedInput, event.detail.ui);
+    });
+    appRoot.addEventListener('ChangeHostnameForAccessKeysRequested', (event: CustomEvent) => {
+      serverManagementApp.setHostnameForAccessKeys(this.selectedServer, event.detail.validatedInput, event.detail.ui);
+    });
+
+    // Access key events
+    appRoot.addEventListener('AddAccessKeyRequested', (event: CustomEvent) => {
+      serverManagementApp.addAccessKey(this.selectedServer);
+    });
+    appRoot.addEventListener('RemoveAccessKeyRequested', (event: CustomEvent) => {
+      serverManagementApp.removeAccessKey(this.selectedServer, event.detail.accessKeyId);
+    });
+    appRoot.addEventListener('RenameAccessKeyRequested', (event: CustomEvent) => {
+      serverManagementApp.renameAccessKey(this.selectedServer, event.detail.accessKeyId, event.detail.newName, event.detail.entry);
+    });
+
+    // Metric events
+    appRoot.addEventListener('EnableMetricsRequested', (event: CustomEvent) => {
+      serverManagementApp.setMetricsEnabled(this.selectedServer, true);
+    });
+    appRoot.addEventListener('DisableMetricsRequested', (event: CustomEvent) => {
+      serverManagementApp.setMetricsEnabled(this.selectedServer, false);
+    });
+
+    // Data limits feature events
+    appRoot.addEventListener('SetAccessKeyDataLimitRequested', (event: CustomEvent) => {
+      serverManagementApp.setAccessKeyDataLimit(this.selectedServer,
+        ServerManagementApp.displayDataAmountToDataLimit(event.detail.limit)).then((result) => {
+          if (result) {
+            this.surveys.presentDataLimitsEnabledSurvey();
+          }
+      });
+    });
+    appRoot.addEventListener('RemoveAccessKeyDataLimitRequested', (event: CustomEvent) => {
+      serverManagementApp.removeAccessKeyDataLimit(this.selectedServer).then(() => {
+        this.surveys.presentDataLimitsDisabledSurvey();
+      });
+    });
   }
 
   async start(): Promise<void> {
@@ -426,6 +478,7 @@ export class App {
       if (isHealthy) {
         // Sync the server display in case it was previously unreachable.
         this.syncServerToDisplay(server).then(() => {
+          this.displayServerRepository.storeLastDisplayedServerId(displayServer.id);
           this.serverManagementApp.showServer(server, displayServer);
         });
       } else {
@@ -691,6 +744,7 @@ export class App {
   private async syncAndShowServer(server: server.Server, timeoutMs = 250) {
     const displayServer = await this.syncServerToDisplay(server);
     await this.syncDisplayServersToUi();
+    this.displayServerRepository.storeLastDisplayedServerId(displayServer.id);
     await this.serverManagementApp.showServer(server, displayServer);
   }
 

@@ -2,10 +2,10 @@ import * as semver from 'semver';
 
 import * as errors from '../infrastructure/errors';
 import * as server from '../model/server';
-import {Surveys} from '../model/survey';
+import {Server} from '../model/server';
 import * as digitalocean_server from '../providers/digitalocean/digitalocean_server';
 
-import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
+import {DisplayServer} from './display_server';
 import {AppRoot} from './ui_components/app-root';
 import {DisplayAccessKey, DisplayDataAmount, ServerView} from './ui_components/outline-server-view';
 
@@ -18,84 +18,39 @@ export const DATA_LIMITS_AVAILABILITY_DATE = new Date('2020-06-02');
 const MAX_ACCESS_KEY_DATA_LIMIT_BYTES = 50 * (10 ** 9);  // 50GB
 
 export class ServerManagementApp {
-  // private selectedServer: server.Server;
-
-  constructor(
-      private appRoot: AppRoot, private manualServerRepository: server.ManualServerRepository,
-      private displayServerRepository: DisplayServerRepository, private surveys: Surveys) {
-    // Server management events
-    appRoot.addEventListener('ServerRenameRequested', (event: CustomEvent) => {
-      this.renameServer(event.detail.newName);
-    });
-    appRoot.addEventListener('ChangePortForNewAccessKeysRequested', (event: CustomEvent) => {
-      this.setPortForNewAccessKeys(event.detail.validatedInput, event.detail.ui);
-    });
-    appRoot.addEventListener('ChangeHostnameForAccessKeysRequested', (event: CustomEvent) => {
-      this.setHostnameForAccessKeys(event.detail.validatedInput, event.detail.ui);
-    });
-
-    // Access key events
-    appRoot.addEventListener('AddAccessKeyRequested', (event: CustomEvent) => {
-      this.addAccessKey();
-    });
-    appRoot.addEventListener('RemoveAccessKeyRequested', (event: CustomEvent) => {
-      this.removeAccessKey(event.detail.accessKeyId);
-    });
-    appRoot.addEventListener('RenameAccessKeyRequested', (event: CustomEvent) => {
-      this.renameAccessKey(event.detail.accessKeyId, event.detail.newName, event.detail.entry);
-    });
-
-    // Metric events
-    appRoot.addEventListener('EnableMetricsRequested', (event: CustomEvent) => {
-      this.setMetricsEnabled(true);
-    });
-    appRoot.addEventListener('DisableMetricsRequested', (event: CustomEvent) => {
-      this.setMetricsEnabled(false);
-    });
-
-    // Data limits feature events
-    appRoot.addEventListener('SetAccessKeyDataLimitRequested', (event: CustomEvent) => {
-      this.setAccessKeyDataLimit(
-          ServerManagementApp.displayDataAmountToDataLimit(event.detail.limit));
-    });
-    appRoot.addEventListener('RemoveAccessKeyDataLimitRequested', (event: CustomEvent) => {
-      this.removeAccessKeyDataLimit();
-    });
-  }
+  constructor(private appRoot: AppRoot) {}
 
   // Show the server management screen. Assumes the server is healthy.
-  public async showServer(selectedServer: server.Server, selectedDisplayServer: DisplayServer) {
-    this.selectedServer = selectedServer;
+  public async showServer(server: server.Server, selectedDisplayServer: DisplayServer) {
     this.appRoot.selectedServer = selectedDisplayServer;
-    this.displayServerRepository.storeLastDisplayedServerId(selectedDisplayServer.id);
 
     // Show view and initialize fields from selectedServer.
     const view = this.appRoot.getServerView(selectedDisplayServer.id);
     view.isServerReachable = true;
-    view.serverId = selectedServer.getServerId();
-    view.serverName = selectedServer.getName();
-    view.serverHostname = selectedServer.getHostnameForAccessKeys();
-    view.serverManagementApiUrl = selectedServer.getManagementApiUrl();
-    view.serverPortForNewAccessKeys = selectedServer.getPortForNewAccessKeys();
+    view.serverId = server.getServerId();
+    view.serverName = server.getName();
+    view.serverHostname = server.getHostnameForAccessKeys();
+    view.serverManagementApiUrl = server.getManagementApiUrl();
+    view.serverPortForNewAccessKeys = server.getPortForNewAccessKeys();
     view.serverCreationDate =
-        ServerManagementApp.localizeDate(selectedServer.getCreatedDate(), this.appRoot.language);
-    view.serverVersion = selectedServer.getVersion();
+        ServerManagementApp.localizeDate(server.getCreatedDate(), this.appRoot.language);
+    view.serverVersion = server.getVersion();
     view.dataLimitsAvailabilityDate =
         ServerManagementApp.localizeDate(DATA_LIMITS_AVAILABILITY_DATE, this.appRoot.language);
     view.accessKeyDataLimit =
-        ServerManagementApp.dataLimitToDisplayDataAmount(selectedServer.getAccessKeyDataLimit());
+        ServerManagementApp.dataLimitToDisplayDataAmount(server.getAccessKeyDataLimit());
     view.isAccessKeyDataLimitEnabled = !!view.accessKeyDataLimit;
 
-    const version = this.selectedServer.getVersion();
+    const version = server.getVersion();
     if (version) {
       view.isAccessKeyPortEditable = semver.gte(version, CHANGE_KEYS_PORT_VERSION);
       view.supportsAccessKeyDataLimit = semver.gte(version, DATA_LIMITS_VERSION);
       view.isHostnameEditable = semver.gte(version, CHANGE_HOSTNAME_VERSION);
     }
 
-    if (ServerManagementApp.isManagedServer(selectedServer)) {
+    if (ServerManagementApp.isManagedServer(server)) {
       view.isServerManaged = true;
-      const host = selectedServer.getHost();
+      const host = server.getHost();
       view.monthlyCost = host.getMonthlyCost().usd;
       view.monthlyOutboundTransferBytes =
           host.getMonthlyOutboundTransferLimit().terabytes * (10 ** 12);
@@ -104,18 +59,18 @@ export class ServerManagementApp {
       view.isServerManaged = false;
     }
 
-    view.metricsEnabled = selectedServer.getMetricsEnabled();
+    view.metricsEnabled = server.getMetricsEnabled();
     this.appRoot.showServerView();
-    this.showMetricsOptInWhenNeeded(selectedServer, view);
+    this.showMetricsOptInWhenNeeded(server, view);
 
     // Load "My Connection" and other access keys.
     try {
-      const serverAccessKeys = await selectedServer.listAccessKeys();
+      const serverAccessKeys = await server.listAccessKeys();
       view.accessKeyRows = serverAccessKeys.map(this.convertToUiAccessKey.bind(this));
       if (!view.accessKeyDataLimit) {
         view.accessKeyDataLimit = ServerManagementApp.dataLimitToDisplayDataAmount(
             await ServerManagementApp.computeDefaultAccessKeyDataLimit(
-                selectedServer, serverAccessKeys));
+              server, serverAccessKeys));
       }
       // Show help bubbles once the page has rendered.
       setTimeout(() => {
@@ -126,60 +81,27 @@ export class ServerManagementApp {
       this.appRoot.showError(this.appRoot.localize('error-keys-get'));
     }
 
-    this.showTransferStats(selectedServer, view);
+    this.showTransferStats(server, view);
   }
 
-  // Syncs the locally persisted server metadata for `server`. Creates a DisplayServer for `server`
-  // if one is not found in storage. Updates the UI to show the DisplayServer.
-  // While this method does not make any assumptions on whether the server is reachable, it does
-  // assume that its management API URL is available.
-  private async syncServerToDisplay(server: server.Server): Promise<DisplayServer> {
-    // We key display servers by the server management API URL, which can be retrieved independently
-    // of the server health.
-    const displayServerId = server.getManagementApiUrl();
-    let displayServer = this.displayServerRepository.findServer(displayServerId);
-    if (!displayServer) {
-      console.debug(`Could not find display server with ID ${displayServerId}`);
-      displayServer = await makeDisplayServer(server);
-      this.displayServerRepository.addServer(displayServer);
-    } else {
-      // We may need to update the stored display server if it was persisted when the server was not
-      // healthy, or the server has been renamed.
-      try {
-        const remoteServerName = server.getName();
-        if (displayServer.name !== remoteServerName) {
-          displayServer.name = remoteServerName;
-        }
-      } catch (e) {
-        // Ignore, we may not have the server config yet.
-      }
-      // Mark the server as synced.
-      this.displayServerRepository.removeServer(displayServer);
-      displayServer.isSynced = true;
-      this.displayServerRepository.addServer(displayServer);
-    }
-    return displayServer;
-  }
-
-  private async renameServer(newName: string) {
+  public async renameServer(server: Server, newName: string) {
     const view = this.appRoot.getServerView(this.appRoot.selectedServer.id);
     try {
-      await this.selectedServer.setName(newName);
+      await server.setName(newName);
       view.serverName = newName;
-      this.syncAndShowServer(this.selectedServer);
     } catch (error) {
       console.error(`Failed to rename server: ${error}`);
       this.appRoot.showError(this.appRoot.localize('error-server-rename'));
-      const oldName = this.selectedServer.getName();
+      const oldName = server.getName();
       view.serverName = oldName;
       // tslint:disable-next-line:no-any
       (view.$.serverSettings as any).serverName = oldName;
     }
   }
 
-  private async setMetricsEnabled(metricsEnabled: boolean) {
+  public async setMetricsEnabled(server: Server, metricsEnabled: boolean) {
     try {
-      await this.selectedServer.setMetricsEnabled(metricsEnabled);
+      await server.setMetricsEnabled(metricsEnabled);
       this.appRoot.showNotification(this.appRoot.localize('saved'));
       // Change metricsEnabled property on polymer element to update display.
       this.appRoot.getServerView(this.appRoot.selectedServer.id).metricsEnabled = metricsEnabled;
@@ -189,24 +111,26 @@ export class ServerManagementApp {
     }
   }
 
-  private showMetricsOptInWhenNeeded(selectedServer: server.Server, serverView: ServerView) {
+  private showMetricsOptInWhenNeeded(server: server.Server, serverView: ServerView) {
     const showMetricsOptInOnce = () => {
-      // Sanity check to make sure the running server is still displayed, i.e.
-      // it hasn't been deleted.
-      if (this.selectedServer !== selectedServer) {
-        return;
-      }
+      // FIXME: Add sanity check back in
+      // // Sanity check to make sure the running server is still displayed, i.e.
+      // // it hasn't been deleted.
+      // if (this.selectedServer !== server) {
+      //   return;
+      // }
+
       // Show the metrics opt in prompt if the server has not already opted in,
       // and if they haven't seen the prompt yet according to localStorage.
-      const storageKey = selectedServer.getServerId() + '-prompted-for-metrics';
-      if (!selectedServer.getMetricsEnabled() && !localStorage.getItem(storageKey)) {
+      const storageKey = server.getServerId() + '-prompted-for-metrics';
+      if (!server.getMetricsEnabled() && !localStorage.getItem(storageKey)) {
         this.appRoot.showMetricsDialogForNewServer();
         localStorage.setItem(storageKey, 'true');
       }
     };
 
     // Calculate milliseconds passed since server creation.
-    const createdDate = selectedServer.getCreatedDate();
+    const createdDate = server.getCreatedDate();
     const now = new Date();
     const msSinceCreation = now.getTime() - createdDate.getTime();
 
@@ -219,9 +143,9 @@ export class ServerManagementApp {
     }
   }
 
-  private async refreshTransferStats(selectedServer: server.Server, serverView: ServerView) {
+  private async refreshTransferStats(server: server.Server, serverView: ServerView) {
     try {
-      const stats = await selectedServer.getDataUsage();
+      const stats = await server.getDataUsage();
       let totalBytes = 0;
       // tslint:disable-next-line:forin
       for (const accessKeyId in stats.bytesTransferredByUserId) {
@@ -229,7 +153,7 @@ export class ServerManagementApp {
       }
       serverView.setServerTransferredData(totalBytes);
 
-      const accessKeyDataLimit = selectedServer.getAccessKeyDataLimit();
+      const accessKeyDataLimit = server.getAccessKeyDataLimit();
       if (accessKeyDataLimit) {
         // Make access key data usage relative to the data limit.
         totalBytes = accessKeyDataLimit.bytes;
@@ -260,17 +184,19 @@ export class ServerManagementApp {
     }
   }
 
-  private showTransferStats(selectedServer: server.Server, serverView: ServerView) {
-    this.refreshTransferStats(selectedServer, serverView);
+  private showTransferStats(server: server.Server, serverView: ServerView) {
+    this.refreshTransferStats(server, serverView);
     // Get transfer stats once per minute for as long as server is selected.
     const statsRefreshRateMs = 60 * 1000;
     const intervalId = setInterval(() => {
-      if (this.selectedServer !== selectedServer) {
-        // Server is no longer running, stop interval
-        clearInterval(intervalId);
-        return;
-      }
-      this.refreshTransferStats(selectedServer, serverView);
+
+      // FIXME: Add check back in
+      // if (this.selectedServer !== server) {
+      //   // Server is no longer running, stop interval
+      //   clearInterval(intervalId);
+      //   return;
+      // }
+      this.refreshTransferStats(server, serverView);
     }, statsRefreshRateMs);
   }
 
@@ -288,8 +214,8 @@ export class ServerManagementApp {
   }
 
   // Access key methods
-  private addAccessKey() {
-    this.selectedServer.addAccessKey()
+  public addAccessKey(server: Server) {
+    server.addAccessKey()
         .then((serverAccessKey: server.AccessKey) => {
           const uiAccessKey = this.convertToUiAccessKey(serverAccessKey);
           this.appRoot.getServerView(this.appRoot.selectedServer.id).addAccessKey(uiAccessKey);
@@ -301,8 +227,8 @@ export class ServerManagementApp {
         });
   }
 
-  private renameAccessKey(accessKeyId: string, newName: string, entry: polymer.Base) {
-    this.selectedServer.renameAccessKey(accessKeyId, newName)
+  public renameAccessKey(server: Server, accessKeyId: string, newName: string, entry: polymer.Base) {
+    server.renameAccessKey(accessKeyId, newName)
         .then(() => {
           entry.commitName();
         })
@@ -313,8 +239,8 @@ export class ServerManagementApp {
         });
   }
 
-  private removeAccessKey(accessKeyId: string) {
-    this.selectedServer.removeAccessKey(accessKeyId)
+  public removeAccessKey(server: Server, accessKeyId: string) {
+    server.removeAccessKey(accessKeyId)
         .then(() => {
           this.appRoot.getServerView(this.appRoot.selectedServer.id).removeAccessKey(accessKeyId);
           this.appRoot.showNotification(this.appRoot.localize('notification-key-removed'));
@@ -325,38 +251,37 @@ export class ServerManagementApp {
         });
   }
 
-  private async setAccessKeyDataLimit(limit: server.DataLimit) {
+  public async setAccessKeyDataLimit(server: Server, limit: server.DataLimit) {
     if (!limit) {
-      return;
+      return false;
     }
-    const previousLimit = this.selectedServer.getAccessKeyDataLimit();
+    const previousLimit = server.getAccessKeyDataLimit();
     if (previousLimit && limit.bytes === previousLimit.bytes) {
-      return;
+      return false;
     }
     const serverView = this.appRoot.getServerView(this.appRoot.selectedServer.id);
     try {
-      await this.selectedServer.setAccessKeyDataLimit(limit);
+      await server.setAccessKeyDataLimit(limit);
       this.appRoot.showNotification(this.appRoot.localize('saved'));
       serverView.accessKeyDataLimit = ServerManagementApp.dataLimitToDisplayDataAmount(limit);
-      this.refreshTransferStats(this.selectedServer, serverView);
-      this.surveys.presentDataLimitsEnabledSurvey();
+      this.refreshTransferStats(server, serverView);
+      return true;
     } catch (error) {
       console.error(`Failed to set access key data limit: ${error}`);
       this.appRoot.showError(this.appRoot.localize('error-set-data-limit'));
       serverView.accessKeyDataLimit = ServerManagementApp.dataLimitToDisplayDataAmount(
           previousLimit ||
-          await ServerManagementApp.computeDefaultAccessKeyDataLimit(this.selectedServer));
+          await ServerManagementApp.computeDefaultAccessKeyDataLimit(server));
       serverView.isAccessKeyDataLimitEnabled = !!previousLimit;
     }
   }
 
-  private async removeAccessKeyDataLimit() {
+  public async removeAccessKeyDataLimit(server: Server) {
     const serverView = this.appRoot.getServerView(this.appRoot.selectedServer.id);
     try {
-      await this.selectedServer.removeAccessKeyDataLimit();
+      await server.removeAccessKeyDataLimit();
       this.appRoot.showNotification(this.appRoot.localize('saved'));
-      this.refreshTransferStats(this.selectedServer, serverView);
-      this.surveys.presentDataLimitsDisabledSurvey();
+      this.refreshTransferStats(server, serverView);
     } catch (error) {
       console.error(`Failed to remove access key data limit: ${error}`);
       this.appRoot.showError(this.appRoot.localize('error-remove-data-limit'));
@@ -364,10 +289,10 @@ export class ServerManagementApp {
     }
   }
 
-  private async setHostnameForAccessKeys(hostname: string, serverSettings: polymer.Base) {
+  public async setHostnameForAccessKeys(server: Server, hostname: string, serverSettings: polymer.Base) {
     this.appRoot.showNotification(this.appRoot.localize('saving'));
     try {
-      await this.selectedServer.setHostnameForAccessKeys(hostname);
+      await server.setHostnameForAccessKeys(hostname);
       this.appRoot.showNotification(this.appRoot.localize('saved'));
       serverSettings.enterSavedState();
     } catch (error) {
@@ -381,10 +306,10 @@ export class ServerManagementApp {
     }
   }
 
-  private async setPortForNewAccessKeys(port: number, serverSettings: polymer.Base) {
+  public async setPortForNewAccessKeys(server: Server, port: number, serverSettings: polymer.Base) {
     this.appRoot.showNotification(this.appRoot.localize('saving'));
     try {
-      await this.selectedServer.setPortForNewAccessKeys(port);
+      await server.setPortForNewAccessKeys(port);
       this.appRoot.showNotification(this.appRoot.localize('saved'));
       serverSettings.enterSavedState();
     } catch (error) {
@@ -468,7 +393,7 @@ export class ServerManagementApp {
     return this.appRoot.localize(`city-${cityId}`);
   }
 
-  private static displayDataAmountToDataLimit(dataAmount: DisplayDataAmount): server.DataLimit
+  public static displayDataAmountToDataLimit(dataAmount: DisplayDataAmount): server.DataLimit
       |null {
     if (!dataAmount) {
       return null;

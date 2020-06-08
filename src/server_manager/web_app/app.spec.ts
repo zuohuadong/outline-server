@@ -24,6 +24,7 @@ import {App} from './app';
 import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
 import {AppRoot} from './ui_components/app-root.js';
 import {ServerView} from './ui_components/outline-server-view.js';
+import {ServerManagementApp} from "./server_management_app";
 
 const TOKEN_WITH_NO_SERVERS = 'no-server-token';
 const TOKEN_WITH_ONE_SERVER = 'one-server-token';
@@ -245,7 +246,7 @@ function createTestApp(
     displayServerRepository = new FakeDisplayServerRepository();
   }
   return new App(
-      polymerAppRoot, VERSION, fakeDigitalOceanSessionFactory,
+      polymerAppRoot, new ServerManagementApp(polymerAppRoot), VERSION, fakeDigitalOceanSessionFactory,
       fakeDigitalOceanServerRepositoryFactory, manualServerRepo, displayServerRepository,
       digitalOceanTokenManager, new FakeSurveys());
 }

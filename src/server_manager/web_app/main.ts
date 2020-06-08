@@ -20,11 +20,12 @@ import * as digitalocean_api from '../providers/digitalocean/digitalocean_api';
 import {DigitalOceanTokenManager} from '../providers/digitalocean/digitalocean_oauth';
 import * as digitalocean_server from '../providers/digitalocean/digitalocean_server';
 
-import {App, DATA_LIMITS_AVAILABILITY_DATE} from './app';
+import {App} from './app';
 import {DisplayServerRepository} from './display_server';
 import {ManualServerRepository} from './manual_server';
 import {DEFAULT_PROMPT_IMPRESSION_DELAY_MS, OutlineSurveys} from './survey';
 import {AppRoot} from './ui_components/app-root.js';
+import {DATA_LIMITS_AVAILABILITY_DATE, ServerManagementApp} from "./server_management_app";
 
 const SUPPORTED_LANGUAGES: {[key: string]: {id: string, dir: string}} = {
   'am': {id: 'am', dir: 'ltr'},
@@ -104,13 +105,19 @@ document.addEventListener('WebComponentsReady', () => {
   // Polymer 3, which adds typescript support.
   const appRoot = document.getElementById('appRoot') as unknown as AppRoot;
   appRoot.setLanguage(language.string(), languageDirection);
+
+  const manualServerRepository = new ManualServerRepository('manualServers');
+  const displayServerRepository = new DisplayServerRepository();
+  const outlineSurveys = new OutlineSurveys(
+    appRoot.$.surveyDialog, localStorage, DEFAULT_PROMPT_IMPRESSION_DELAY_MS,
+    DATA_LIMITS_AVAILABILITY_DATE);
   new App(
-      appRoot, version, digitalocean_api.createDigitalOceanSession,
-      digitalOceanServerRepositoryFactory, new ManualServerRepository('manualServers'),
-      new DisplayServerRepository(), new DigitalOceanTokenManager(),
-      new OutlineSurveys(
-          appRoot.$.surveyDialog, localStorage, DEFAULT_PROMPT_IMPRESSION_DELAY_MS,
-          DATA_LIMITS_AVAILABILITY_DATE))
+      appRoot,
+      new ServerManagementApp(appRoot),
+      version, digitalocean_api.createDigitalOceanSession,
+      digitalOceanServerRepositoryFactory, manualServerRepository,
+      displayServerRepository, new DigitalOceanTokenManager(),
+      outlineSurveys)
       .start();
 });
 
