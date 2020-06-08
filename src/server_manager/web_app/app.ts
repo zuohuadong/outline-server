@@ -25,9 +25,9 @@ import * as digitalocean_server from '../providers/digitalocean/digitalocean_ser
 
 import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
 import {parseManualServerConfig} from './management_urls';
+import {ServerManagementApp} from './server_management_app';
 import {AppRoot} from './ui_components/app-root.js';
 import {DisplayAccessKey, ServerView} from './ui_components/outline-server-view.js';
-import {ServerManagementApp} from "./server_management_app";
 
 function isManagedServer(testServer: server.Server): testServer is server.ManagedServer {
   return !!(testServer as server.ManagedServer).getHost;
@@ -43,8 +43,7 @@ export class App {
   private serverBeingCreated: server.ManagedServer;
 
   constructor(
-      private appRoot: AppRoot,
-      private serverManagementApp: ServerManagementApp,
+      private appRoot: AppRoot, private serverManagementApp: ServerManagementApp,
       private readonly version: string,
       private createDigitalOceanSession: digitalocean_api.DigitalOceanSessionFactory,
       private createDigitalOceanServerRepository:
