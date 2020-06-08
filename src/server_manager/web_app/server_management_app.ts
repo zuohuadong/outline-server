@@ -69,8 +69,7 @@ export class ServerManagementApp {
       view.accessKeyRows = serverAccessKeys.map(this.convertToUiAccessKey.bind(this));
       if (!view.accessKeyDataLimit) {
         view.accessKeyDataLimit = ServerManagementApp.dataLimitToDisplayDataAmount(
-            await ServerManagementApp.computeDefaultAccessKeyDataLimit(
-              server, serverAccessKeys));
+            await ServerManagementApp.computeDefaultAccessKeyDataLimit(server, serverAccessKeys));
       }
       // Show help bubbles once the page has rendered.
       setTimeout(() => {
@@ -189,7 +188,6 @@ export class ServerManagementApp {
     // Get transfer stats once per minute for as long as server is selected.
     const statsRefreshRateMs = 60 * 1000;
     const intervalId = setInterval(() => {
-
       // FIXME: Add check back in
       // if (this.selectedServer !== server) {
       //   // Server is no longer running, stop interval
@@ -227,7 +225,8 @@ export class ServerManagementApp {
         });
   }
 
-  public renameAccessKey(server: Server, accessKeyId: string, newName: string, entry: polymer.Base) {
+  public renameAccessKey(
+      server: Server, accessKeyId: string, newName: string, entry: polymer.Base) {
     server.renameAccessKey(accessKeyId, newName)
         .then(() => {
           entry.commitName();
@@ -270,8 +269,7 @@ export class ServerManagementApp {
       console.error(`Failed to set access key data limit: ${error}`);
       this.appRoot.showError(this.appRoot.localize('error-set-data-limit'));
       serverView.accessKeyDataLimit = ServerManagementApp.dataLimitToDisplayDataAmount(
-          previousLimit ||
-          await ServerManagementApp.computeDefaultAccessKeyDataLimit(server));
+          previousLimit || await ServerManagementApp.computeDefaultAccessKeyDataLimit(server));
       serverView.isAccessKeyDataLimitEnabled = !!previousLimit;
     }
   }
@@ -289,7 +287,8 @@ export class ServerManagementApp {
     }
   }
 
-  public async setHostnameForAccessKeys(server: Server, hostname: string, serverSettings: polymer.Base) {
+  public async setHostnameForAccessKeys(
+      server: Server, hostname: string, serverSettings: polymer.Base) {
     this.appRoot.showNotification(this.appRoot.localize('saving'));
     try {
       await server.setHostnameForAccessKeys(hostname);
@@ -393,8 +392,7 @@ export class ServerManagementApp {
     return this.appRoot.localize(`city-${cityId}`);
   }
 
-  public static displayDataAmountToDataLimit(dataAmount: DisplayDataAmount): server.DataLimit
-      |null {
+  public static displayDataAmountToDataLimit(dataAmount: DisplayDataAmount): server.DataLimit|null {
     if (!dataAmount) {
       return null;
     }

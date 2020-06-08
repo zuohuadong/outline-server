@@ -162,10 +162,12 @@ export class App {
       });
     });
     appRoot.addEventListener('ChangePortForNewAccessKeysRequested', (event: CustomEvent) => {
-      serverManagementApp.setPortForNewAccessKeys(this.selectedServer, event.detail.validatedInput, event.detail.ui);
+      serverManagementApp.setPortForNewAccessKeys(
+          this.selectedServer, event.detail.validatedInput, event.detail.ui);
     });
     appRoot.addEventListener('ChangeHostnameForAccessKeysRequested', (event: CustomEvent) => {
-      serverManagementApp.setHostnameForAccessKeys(this.selectedServer, event.detail.validatedInput, event.detail.ui);
+      serverManagementApp.setHostnameForAccessKeys(
+          this.selectedServer, event.detail.validatedInput, event.detail.ui);
     });
 
     // Access key events
@@ -176,7 +178,8 @@ export class App {
       serverManagementApp.removeAccessKey(this.selectedServer, event.detail.accessKeyId);
     });
     appRoot.addEventListener('RenameAccessKeyRequested', (event: CustomEvent) => {
-      serverManagementApp.renameAccessKey(this.selectedServer, event.detail.accessKeyId, event.detail.newName, event.detail.entry);
+      serverManagementApp.renameAccessKey(
+          this.selectedServer, event.detail.accessKeyId, event.detail.newName, event.detail.entry);
     });
 
     // Metric events
@@ -189,12 +192,15 @@ export class App {
 
     // Data limits feature events
     appRoot.addEventListener('SetAccessKeyDataLimitRequested', (event: CustomEvent) => {
-      serverManagementApp.setAccessKeyDataLimit(this.selectedServer,
-        ServerManagementApp.displayDataAmountToDataLimit(event.detail.limit)).then((result) => {
-          if (result) {
-            this.surveys.presentDataLimitsEnabledSurvey();
-          }
-      });
+      serverManagementApp
+          .setAccessKeyDataLimit(
+              this.selectedServer,
+              ServerManagementApp.displayDataAmountToDataLimit(event.detail.limit))
+          .then((result) => {
+            if (result) {
+              this.surveys.presentDataLimitsEnabledSurvey();
+            }
+          });
     });
     appRoot.addEventListener('RemoveAccessKeyDataLimitRequested', (event: CustomEvent) => {
       serverManagementApp.removeAccessKeyDataLimit(this.selectedServer).then(() => {
