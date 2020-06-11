@@ -343,13 +343,10 @@ export class App {
     } else {
       // We may need to update the stored display server if it was persisted when the server was not
       // healthy, or the server has been renamed.
-      try {
-        const remoteServerName = server.getName();
-        if (displayServer.name !== remoteServerName) {
-          displayServer.name = remoteServerName;
-        }
-      } catch (e) {
-        // Ignore, we may not have the server config yet.
+      const remoteServerName = server.getName();
+      if (remoteServerName !== undefined) {
+        // Ignore, we may not have the server config.
+        displayServer.name = remoteServerName;
       }
       // Mark the server as synced.
       this.displayServerRepository.removeServer(displayServer);
