@@ -68,21 +68,23 @@ class DigitaloceanServer extends ShadowboxServer implements server.ManagedServer
   private eventQueue = new EventEmitter();
   private installState: InstallState = InstallState.UNKNOWN;
 
-  // Since full construction requires waiting for DO to install the server, and may fail, we
-  // use two-phase construction.  This should be followed by completeInstallation().
-  // TODO we can enforce this by making these two private and making a nested builder class which
-  // encapsulates the two calls.
-  constructor(private digitalOcean: DigitalOceanSession, private dropletInfo: DropletInfo) {
+  // Since we need to await, and since installing a server could fail, we encapsulate construction
+  // logic in a factory method.  Use DigitaloceanServer.build().
+  private constructor(private digitalOcean: DigitalOceanSession, private dropletInfo: DropletInfo) {
     // Consider passing a RestEndpoint object to the parent constructor,
     // to better encapsulate the management api address logic.
     super();
     this.eventQueue.once('server-active', () => console.timeEnd('activeServer'));
   }
 
-  public async completeInstallation(): Promise<void> {
-    await this.waitOnInstall(true).then(() => {
-      this.setInstallCompleted();
-    });
+  // Install a DigitalOcean server and return it.  May fail with a rejected Promise
+  static async build(digitalOcean: DigitalOceanSession, dropletInfo: DropletInfo):
+      Promise<DigitaloceanServer> {
+    const server = new DigitaloceanServer(digitalOcean, dropletInfo);
+    // This can fail, handled further up the call chain
+    await server.waitOnInstall(true);
+    server.setInstallCompleted();
+    return server;
   }
 
   waitOnInstall(resetTimeout: boolean): Promise<void> {
@@ -410,15 +412,12 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
     return dropletServers;
   }
 
-  // Creates a DigitaloceanServer object and adds it to the in-memory server list.
+  // Creates a DigitaloceanServer object and adds it to the in-memory server list. May fail with a
+  // rejected Promise
   private async createDigitalOceanServer(
       digitalOcean: DigitalOceanSession, dropletInfo: DropletInfo): Promise<DigitaloceanServer> {
-    const server = new DigitaloceanServer(digitalOcean, dropletInfo);
-    // installation could fail if the server isn't reachable
-    await server.completeInstallation().catch((err) => {
-      console.error(`Failed to create DigitalOcean server.  Session: ${
-          digitalOcean}. dropletInfo: ${dropletInfo}`);
-    });
+    // This can fail, handled further up the call chain.
+    const server = await DigitaloceanServer.build(digitalOcean, dropletInfo);
     this.servers.push(server);
     return server;
   }
