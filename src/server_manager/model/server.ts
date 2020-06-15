@@ -14,7 +14,7 @@
 
 export interface Server {
   // Get the server's name for display.
-  getName(): string;
+  getName(): string|undefined;
 
   // Gets the version of the shadowbox binary the server is running
   getVersion(): string;
@@ -138,6 +138,7 @@ export interface ManagedServerRepository {
   getRegionMap(): Promise<Readonly<RegionMap>>;
   // Creates a server and returning it when it becomes active (i.e. the server has
   // created, not necessarily once shadowbox installation has finished).
+  // Callers must make sure to handle the case that the server failed to be created.
   createServer(region: RegionId, name: string): Promise<ManagedServer>;
 }
 

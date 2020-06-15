@@ -142,7 +142,9 @@ export class App {
     });
 
     appRoot.addEventListener('SetUpServerRequested', (event: CustomEvent) => {
-      this.createDigitalOceanServer(event.detail.regionId);
+      this.createDigitalOceanServer(event.detail.regionId).catch((err) => {
+        console.error(`Failed to create DigitalOcean server: ${err}`);
+      });
     });
 
     appRoot.addEventListener('DeleteServerRequested', (event: CustomEvent) => {
@@ -303,7 +305,9 @@ export class App {
 
   private async syncServersToDisplay(servers: server.Server[]) {
     for (const server of servers) {
-      await this.syncServerToDisplay(server);
+      await this.syncServerToDisplay(server).catch((err) => {
+        console.error(`Failed to sync ${server} to display: ${err}`);
+      });
     }
 
     // Remove any unsynced servers from display and alert the user.
@@ -344,8 +348,8 @@ export class App {
       // We may need to update the stored display server if it was persisted when the server was not
       // healthy, or the server has been renamed.
       const remoteServerName = server.getName();
+      // We may not yet have the server config
       if (remoteServerName !== undefined) {
-        // Ignore, we may not have the server config.
         displayServer.name = remoteServerName;
       }
       // Mark the server as synced.
@@ -801,9 +805,7 @@ export class App {
           this.syncServerCreationToUi(server);
         })
         .catch((e) => {
-          // Sanity check - this error is not expected to occur, as waitForManagedServerCreation
-          // has it's own error handling.
-          console.error('error from waitForManagedServerCreation');
+          console.error(`Error in createDigitalOceanServer(${JSON.stringify(regionId)}: ${e})`);
           return Promise.reject(e);
         });
   }

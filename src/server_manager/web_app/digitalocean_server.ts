@@ -68,19 +68,21 @@ class DigitaloceanServer extends ShadowboxServer implements server.ManagedServer
   private eventQueue = new EventEmitter();
   private installState: InstallState = InstallState.UNKNOWN;
 
+  // Since full construction requires waiting for DO to install the server, and may fail, we
+  // use two-phase construction.  This should be followed by completeInstallation().
+  // TODO we can enforce this by making these two private and making a nested builder class which
+  // encapsulates the two calls.
   constructor(private digitalOcean: DigitalOceanSession, private dropletInfo: DropletInfo) {
     // Consider passing a RestEndpoint object to the parent constructor,
     // to better encapsulate the management api address logic.
     super();
-    console.info('DigitalOceanServer created');
     this.eventQueue.once('server-active', () => console.timeEnd('activeServer'));
-    this.waitOnInstall(true)
-        .then(() => {
-          this.setInstallCompleted();
-        })
-        .catch((e) => {
-          console.error(`error installing server: ${e.message}`);
-        });
+  }
+
+  public async completeInstallation(): Promise<void> {
+    await this.waitOnInstall(true).then(() => {
+      this.setInstallCompleted();
+    });
   }
 
   waitOnInstall(resetTimeout: boolean): Promise<void> {
@@ -363,8 +365,8 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
     });
   }
 
-  // Creates a server and returning it when it becomes active.
-  createServer(region: server.RegionId, name: string): Promise<server.ManagedServer> {
+  // Creates a server and returns it when it becomes active.  May fail with a rejected Promise
+  async createServer(region: server.RegionId, name: string): Promise<server.ManagedServer> {
     console.time('activeServer');
     console.time('servingServer');
     const onceKeyPair = crypto.generateKeyPair();
@@ -379,37 +381,44 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
       image: 'docker-18-04',
       tags: [SHADOWBOX_TAG],
     };
-    return onceKeyPair
-        .then((keyPair) => {
-          if (this.debugMode) {
-            // Strip carriage returns, which produce weird blank lines when pasted into a terminal.
-            console.debug(
-                `private key for SSH access to new droplet:\n${
-                    keyPair.private.replace(/\r/g, '')}\n\n` +
-                'Use "ssh -i keyfile root@[ip_address]" to connect to the machine');
-          }
-          return this.digitalOcean.createDroplet(name, region, keyPair.public, dropletSpec);
-        })
-        .then((response) => {
-          return this.createDigitalOceanServer(this.digitalOcean, response.droplet);
-        });
+    const keyPair = await onceKeyPair;
+    if (this.debugMode) {
+      // Strip carriage returns, which produce weird blank lines when pasted into a terminal.
+      console.debug(
+          `private key for SSH access to new droplet:\n${keyPair.private.replace(/\r/g, '')}\n\n` +
+          'Use "ssh -i keyfile root@[ip_address]" to connect to the machine');
+    }
+    const response =
+        await this.digitalOcean.createDroplet(name, region, keyPair.public, dropletSpec);
+    return this.createDigitalOceanServer(this.digitalOcean, response.droplet);
   }
 
-  listServers(fetchFromHost = true): Promise<server.ManagedServer[]> {
+  async listServers(fetchFromHost = true): Promise<server.ManagedServer[]> {
     if (!fetchFromHost) {
       return Promise.resolve(this.servers);  // Return the in-memory servers.
     }
-    return this.digitalOcean.getDropletsByTag(SHADOWBOX_TAG).then((droplets) => {
-      this.servers = [];
-      return droplets.map((droplet) => {
-        return this.createDigitalOceanServer(this.digitalOcean, droplet);
-      });
-    });
+    const droplets = await this.digitalOcean.getDropletsByTag(SHADOWBOX_TAG);
+    this.servers = [];
+    const dropletServers: server.ManagedServer[] = [];
+    for (const droplet of droplets) {
+      const server = await this.createDigitalOceanServer(this.digitalOcean, droplet)
+                         .then((server) => {
+                           dropletServers.push(server);
+                         })
+                         .catch(() => {});
+    }
+    return dropletServers;
   }
 
   // Creates a DigitaloceanServer object and adds it to the in-memory server list.
-  private createDigitalOceanServer(digitalOcean: DigitalOceanSession, dropletInfo: DropletInfo) {
+  private async createDigitalOceanServer(
+      digitalOcean: DigitalOceanSession, dropletInfo: DropletInfo): Promise<DigitaloceanServer> {
     const server = new DigitaloceanServer(digitalOcean, dropletInfo);
+    // installation could fail if the server isn't reachable
+    await server.completeInstallation().catch((err) => {
+      console.error(`Failed to create DigitalOcean server.  Session: ${
+          digitalOcean}. dropletInfo: ${dropletInfo}`);
+    });
     this.servers.push(server);
     return server;
   }
