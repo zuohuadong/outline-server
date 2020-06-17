@@ -303,7 +303,10 @@ export class App {
 
   private async syncServersToDisplay(servers: server.Server[]) {
     for (const server of servers) {
-      await this.syncServerToDisplay(server);
+      // We must catch errors
+      await this.syncServerToDisplay(server).catch((err) => {
+        console.error(`Error syncing server ${server.getServerId()} to display: ${err}`);
+      });
     }
 
     // Remove any unsynced servers from display and alert the user.
@@ -343,13 +346,9 @@ export class App {
     } else {
       // We may need to update the stored display server if it was persisted when the server was not
       // healthy, or the server has been renamed.
-      try {
-        const remoteServerName = server.getName();
-        if (displayServer.name !== remoteServerName) {
-          displayServer.name = remoteServerName;
-        }
-      } catch (e) {
-        // Ignore, we may not have the server config yet.
+      const remoteServerName = server.getName();
+      if (remoteServerName !== undefined) {
+        displayServer.name = remoteServerName;
       }
       // Mark the server as synced.
       this.displayServerRepository.removeServer(displayServer);

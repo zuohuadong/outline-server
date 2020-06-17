@@ -14,7 +14,7 @@
 
 export interface Server {
   // Get the server's name for display.
-  getName(): string;
+  getName(): string|undefined;
 
   // Gets the version of the shadowbox binary the server is running
   getVersion(): string;

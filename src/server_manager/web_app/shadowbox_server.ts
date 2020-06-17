@@ -91,8 +91,8 @@ export class ShadowboxServer implements server.Server {
     return this.apiRequest<server.DataUsageByAccessKey>('metrics/transfer');
   }
 
-  getName(): string {
-    return this.serverConfig.name;
+  getName(): string|undefined {
+    return this.serverConfig?.name;
   }
 
   setName(name: string): Promise<void> {

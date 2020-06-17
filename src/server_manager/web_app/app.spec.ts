@@ -219,6 +219,26 @@ describe('App', () => {
        });
        await app.start();
      });
+
+  // TODO(cohenjon) Run this test once we build and run the web app tests
+  xit('Doesnt hang when a server fails to sync', async (done) => {
+    const polymerAppRoot = new FakePolymerAppRoot();
+    const tokenManager = new InMemoryDigitalOceanTokenManager();
+    const displayServerRepository = new FakeDisplayServerRepository();
+    const managedSeverRepository = new FakeManagedServerRepository();
+    await managedSeverRepository.createUndefinedConfigServer();
+    const synced = await managedSeverRepository.createServer();
+    const app = createTestApp(
+        polymerAppRoot, tokenManager, null, displayServerRepository, managedSeverRepository);
+    await app.start();
+    const servers = await displayServerRepository.listServers();
+    for (const server of servers) {
+      if (server.id === synced.getServerId()) {
+        expect(server.isSynced).toBeTruthy();
+        done();
+      }
+    }
+  });
 });
 
 function createTestApp(
@@ -495,6 +515,18 @@ class FakeManagedServer extends FakeServer implements server.ManagedServer {
   }
 }
 
+class FakeManagedServerUndefinedConfig extends FakeManagedServer implements server.ManagedServer {
+  private undefinedConfig: {name: string} = undefined;
+
+  constructor() {
+    super();
+  }
+
+  getName(): string|undefined {
+    return this.undefinedConfig.name;
+  }
+}
+
 class FakeManagedServerRepository implements server.ManagedServerRepository {
   private servers: server.ManagedServer[] = [];
   listServers() {
@@ -508,7 +540,11 @@ class FakeManagedServerRepository implements server.ManagedServerRepository {
     this.servers.push(newServer);
     return Promise.resolve(newServer);
   }
-
+  async createUndefinedConfigServer(): Promise<FakeManagedServer> {
+    const server = new FakeManagedServerUndefinedConfig();
+    this.servers.push(server);
+    return Promise.resolve(server);
+  }
   createUninstalledServer() {
     const newServer = new FakeManagedServer(false);
     this.servers.push(newServer);
