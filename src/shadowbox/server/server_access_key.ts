@@ -56,7 +56,10 @@ function isValidAccessKeyDataLimit(limit: DataLimit): boolean {
 
 // Generates a random password for Shadowsocks access keys.
 function generatePassword(): string {
-  return randomstring.generate(12);
+  // The random string contains the characters A-Z, a-z, and 0-9 (62 possibilities).
+  // The maximum key entropy in Shadowsocks is 160 bits, limited by the SHA1 PBKDF.
+  // 27 characters provides log2(62^27) = 160.7 bits of entropy.
+  return randomstring.generate(27);
 }
 
 function makeAccessKey(hostname: string, accessKeyJson: AccessKeyJson): AccessKey {
