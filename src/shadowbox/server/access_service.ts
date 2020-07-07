@@ -103,12 +103,7 @@ export class ShadowboxAccessServiceApi {
     logging.debug('listAccessKeys request');
     const accessKeys = await this.apiRequest<{}>('access-keys', {method: 'GET'});
     const accessKeysResponse = accessKeys['accessKeys'].map((key) => {
-      return {
-        host: key.host,
-        port: key.port,
-        password: key.password,
-        cipher: key.method
-      };
+      return {host: key.host, port: key.port, password: key.password, cipher: key.method};
     });
     res.send(200, accessKeysResponse);
     next();

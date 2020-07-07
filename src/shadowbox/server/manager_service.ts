@@ -20,12 +20,11 @@ import {makeConfig, SIP002_URI} from 'ShadowsocksConfig/shadowsocks_config';
 import {JsonConfig} from '../infrastructure/json_config';
 import * as logging from '../infrastructure/logging';
 import {AccessKey, AccessKeyRepository, DataLimit} from '../model/access_key';
+import {AccessServiceConfig} from '../model/access_service';
 import * as errors from '../model/errors';
 import {version} from '../package.json';
 
-import {AccessServiceConfig} from '../model/access_service';
 import {ShadowboxAccessService} from './access_service';
-
 import {ManagerMetrics} from './manager_metrics';
 import {ServerConfigJson} from './server_config';
 import {SharedMetricsPublisher} from './shared_metrics';
@@ -52,11 +51,13 @@ function accessKeyToJson(accessKey: AccessKey) {
   };
 }
 
-function accessServiceConfigToJson(accessServiceConfig: AccessServiceConfig|undefined, hostname: string) {
+function accessServiceConfigToJson(
+    accessServiceConfig: AccessServiceConfig|undefined, hostname: string) {
   if (!accessServiceConfig) {
     return undefined;
   }
-  const accessServiceUrl = `https://${hostname}:${accessServiceConfig.port}/${accessServiceConfig.prefix}`;
+  const accessServiceUrl =
+      `https://${hostname}:${accessServiceConfig.port}/${accessServiceConfig.prefix}`;
   const certificateFingerprintSha256 = accessServiceConfig.certificateSha256Fingerprint;
   return {url: accessServiceUrl, certificateFingerprintSha256};
 }
@@ -182,7 +183,8 @@ export class ShadowsocksManagerService {
       portForNewAccessKeys: this.serverConfig.data().portForNewAccessKeys,
       hostnameForAccessKeys: this.serverConfig.data().hostname,
       // TODO(alalama): do we want a GET /access-service endpoint instead?
-      accessServiceConfig: accessServiceConfigToJson(this.serverConfig.data().accessServiceConfig, this.serverConfig.data().hostname)
+      accessServiceConfig: accessServiceConfigToJson(
+          this.serverConfig.data().accessServiceConfig, this.serverConfig.data().hostname)
     });
     next();
   }
@@ -405,7 +407,8 @@ export class ShadowsocksManagerService {
       const accessServiceConfig = await this.accessService.start();
       this.serverConfig.data().accessServiceConfig = accessServiceConfig;
       this.serverConfig.write();
-      const accessServiceConfigJson = accessServiceConfigToJson(accessServiceConfig, this.serverConfig.data().hostname);
+      const accessServiceConfigJson =
+          accessServiceConfigToJson(accessServiceConfig, this.serverConfig.data().hostname);
       res.send(HttpSuccess.OK, accessServiceConfigJson);
       return next();
     } catch (error) {
