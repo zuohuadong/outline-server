@@ -56,10 +56,10 @@ function accessServiceConfigToJson(
   if (!accessServiceConfig) {
     return undefined;
   }
-  const accessServiceUrl =
-      `https://${hostname}:${accessServiceConfig.port}/${accessServiceConfig.prefix}`;
   const certificateFingerprintSha256 = accessServiceConfig.certificateSha256Fingerprint;
-  return {url: accessServiceUrl, certificateFingerprintSha256};
+  const accessUrl = `https://${hostname}:${accessServiceConfig.port}/${
+      accessServiceConfig.prefix}?certFingerprintSha256=${certificateFingerprintSha256}`;
+  return {url: `outline://${accessUrl}`, certificateFingerprintSha256};
 }
 
 // Type to reflect that we receive untyped JSON request parameters.

@@ -75,6 +75,7 @@ export class ShadowboxAccessService {
 
     // Compute the certificate SHA256 fingerprint. Equivalent to:
     // openssl x509 -in $CERT -noout -sha256 -fingerprint
+    // TODO(alalama): public key fingerprint?
     const certificate = fs.readFileSync(certificateFilename);
     const certBase64 = certificate.toString()
                            .split('\n')
@@ -83,29 +84,32 @@ export class ShadowboxAccessService {
                            .join('');
     const certificateSha256Fingerprint = crypto.createHash('sha256')
                                              .update(Buffer.from(certBase64, 'base64'))
-                                             // TODO(alalama): hex output?
-                                             .digest('base64');
+                                             .digest('hex')
+                                             .toUpperCase()
+                                             .match(/.{2}/g)
+                                             .join(':');
+    // .digest('base64')
 
     return {certificateFilename, privateKeyFilename, port, prefix, certificateSha256Fingerprint};
   }
 
+
   // TODO(alalama): only pass prefix
   private bindService(server: restify.Server, prefix: string, service: ShadowboxAccessServiceApi) {
-    server.get(`${prefix}/access-keys`, service.listAccessKeys.bind(service));
+    // TODO(alalama): /config?
+    // TODO(alalama): post?
+    server.get(`${prefix}/access-keys`, service.createAccessKey.bind(service));
   }
 }
 
 export class ShadowboxAccessServiceApi {
   constructor(private managementApiUrl: string) {}
 
-  // TODO(alalama): implement access policy; keep track of access keys created
-  async listAccessKeys(req: restify.Request, res: restify.Response, next: restify.Next) {
-    logging.debug('listAccessKeys request');
-    const accessKeys = await this.apiRequest<{}>('access-keys', {method: 'GET'});
-    const accessKeysResponse = accessKeys['accessKeys'].map((key) => {
-      return {host: key.host, port: key.port, password: key.password, cipher: key.method};
-    });
-    res.send(200, accessKeysResponse);
+  // TODO(alalama): keep track of access keys created
+  async createAccessKey(req: restify.Request, res: restify.Response, next: restify.Next) {
+    logging.debug('createAccessKey request');
+    const accessKey = await this.apiRequest<{}>('access-keys', {method: 'POST'});
+    res.send(200, accessKey);
     next();
   }
 
