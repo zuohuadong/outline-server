@@ -44,7 +44,7 @@ export interface AccessKey {
   readonly proxyParams: ProxyParams;
   // Whether the access key has exceeded the data transfer limit.
   readonly isOverDataLimit: boolean;
-  // The key's current data limit.
+  // The key's current data limit.  If it exists, it overrides the server default data limit.
   dataLimit?: DataLimit;
 }
 
@@ -68,7 +68,7 @@ export interface AccessKeyRepository {
   // Removes the access key data transfer limit.
   removeDefaultDataLimit(): Promise<void>;
   // Sets access key `id` to use the given custom data limit.
-  setAccessKeyDataLimit(id: AccessKeyId, limit: DataLimit);
+  setAccessKeyDataLimit(id: AccessKeyId, limit: DataLimit): Promise<void>;
   // Removes the custom data limit from access key `id`.
-  removeAccessKeyDataLimit(id: AccessKeyId);
+  removeAccessKeyDataLimit(id: AccessKeyId): Promise<void>;
 }

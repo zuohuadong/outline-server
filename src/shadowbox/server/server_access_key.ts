@@ -26,7 +26,7 @@ import {ShadowsocksServer} from '../model/shadowsocks_server';
 import {PrometheusManagerMetrics} from './manager_metrics';
 
 // The format as json of access keys in the config file.
-interface AccessKeyJson {
+export interface AccessKeyJson {
   id: AccessKeyId;
   metricsId: AccessKeyId;
   name: string;
@@ -67,7 +67,7 @@ function makeAccessKey(hostname: string, accessKeyJson: AccessKeyJson): AccessKe
       accessKeyJson.id, accessKeyJson.name, accessKeyJson.metricsId, proxyParams);
 }
 
-function accessKeySerializedJson(accessKey: AccessKey): AccessKeyJson {
+function accessKeyToPersistedJson(accessKey: AccessKey): AccessKeyJson {
   return {
     id: accessKey.id,
     metricsId: accessKey.metricsId,
@@ -219,7 +219,11 @@ export class ServerAccessKeyRepository implements AccessKeyRepository {
     for (const accessKey of this.accessKeys) {
       const usageBytes = bytesTransferredById[accessKey.id] || 0;
       const wasOverDataLimit = accessKey.isOverDataLimit;
-      accessKey.isOverDataLimit = usageBytes > (accessKey.dataLimit || this.defaultDataLimit)?.bytes || false;
+      let limitBytes = (accessKey.dataLimit || this.defaultDataLimit)?.bytes;
+      if (limitBytes === undefined) {
+        limitBytes = Number.POSITIVE_INFINITY;
+      }
+      accessKey.isOverDataLimit = usageBytes > limitBytes;
       limitStatusChanged = accessKey.isOverDataLimit !== wasOverDataLimit || limitStatusChanged;
     }
     if (limitStatusChanged) {
@@ -244,7 +248,7 @@ export class ServerAccessKeyRepository implements AccessKeyRepository {
   }
 
   private saveAccessKeys() {
-    this.keyConfig.data().accessKeys = this.accessKeys.map(key => accessKeySerializedJson(key));
+    this.keyConfig.data().accessKeys = this.accessKeys.map(key => accessKeyToPersistedJson(key));
     this.keyConfig.write();
   }
 

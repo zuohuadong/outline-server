@@ -28,7 +28,7 @@ import {ServerConfigJson} from './server_config';
 import {SharedMetricsPublisher} from './shared_metrics';
 
 // Creates a AccessKey response.
-function accessKeyResponseJson(accessKey: AccessKey) {
+function accessKeyToJsonResponse(accessKey: AccessKey) {
   return {
     // The unique identifier of this access key.
     id: accessKey.id,
@@ -38,13 +38,13 @@ function accessKeyResponseJson(accessKey: AccessKey) {
     password: accessKey.proxyParams.password,
     port: accessKey.proxyParams.portNumber,
     method: accessKey.proxyParams.encryptionMethod,
+    dataLimit: accessKey.dataLimit,
     accessUrl: SIP002_URI.stringify(makeConfig({
       host: accessKey.proxyParams.hostname,
       port: accessKey.proxyParams.portNumber,
       method: accessKey.proxyParams.encryptionMethod,
       password: accessKey.proxyParams.password,
-      outline: 1,
-      dataLimit: accessKey.dataLimit
+      outline: 1
     }))
   };
 }
@@ -217,7 +217,7 @@ export class ShadowsocksManagerService {
     logging.debug(`listAccessKeys request ${JSON.stringify(req.params)}`);
     const response = {accessKeys: []};
     for (const accessKey of this.accessKeys.listAccessKeys()) {
-      response.accessKeys.push(accessKeyResponseJson(accessKey));
+      response.accessKeys.push(accessKeyToJsonResponse(accessKey));
     }
     logging.debug(`listAccessKeys response ${JSON.stringify(response)}`);
     res.send(HttpSuccess.OK, response);
@@ -229,7 +229,7 @@ export class ShadowsocksManagerService {
     try {
       logging.debug(`createNewAccessKey request ${JSON.stringify(req.params)}`);
       this.accessKeys.createNewAccessKey().then((accessKey) => {
-        const accessKeyJson = accessKeyResponseJson(accessKey);
+        const accessKeyJson = accessKeyToJsonResponse(accessKey);
         res.send(201, accessKeyJson);
         logging.debug(`createNewAccessKey response ${JSON.stringify(accessKeyJson)}`);
         return next();
