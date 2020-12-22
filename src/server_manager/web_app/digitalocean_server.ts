@@ -14,7 +14,7 @@
 
 import {EventEmitter} from 'eventemitter3';
 
-import {DigitalOceanSession, DropletInfo} from '../cloud/digitalocean_api';
+import {Account, DigitalOceanSession, DropletInfo} from '../cloud/digitalocean_api';
 import * as crypto from '../infrastructure/crypto';
 import * as errors from '../infrastructure/errors';
 import {asciiToHex, hexToString} from '../infrastructure/hex_encoding';
@@ -22,6 +22,9 @@ import * as do_install_script from '../install_scripts/do_install_script';
 import * as server from '../model/server';
 
 import {ShadowboxServer} from './shadowbox_server';
+import {KeyValueStorage} from "../infrastructure/key_value_storage";
+import {PersistedAccount} from "./account_manager";
+import {CloudProviderId} from "../model/cloud";
 
 // WARNING: these strings must be lowercase due to a DigitalOcean case
 // sensitivity bug.
@@ -343,8 +346,14 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
   private servers: DigitaloceanServer[] = [];
 
   constructor(
-      private digitalOcean: DigitalOceanSession, private image: string, private metricsUrl: string,
-      private sentryApiUrl: string|undefined, private debugMode: boolean) {}
+      private accountStorage: KeyValueStorage<PersistedAccount, string>,
+      private digitalOcean: DigitalOceanSession, private image: string,
+      private metricsUrl: string, private sentryApiUrl: string|undefined,
+      private debugMode: boolean) {}
+
+  getAccount(): Promise<Account> {
+    return this.digitalOcean.getAccount();
+  }
 
   // Return a map of regions that are available and support our target machine size.
   getRegionMap(): Promise<Readonly<server.RegionMap>> {
@@ -405,6 +414,10 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
         return this.createDigitalOceanServer(this.digitalOcean, droplet);
       });
     });
+  }
+
+  disconnect(): void {
+    this.accountStorage.remove(CloudProviderId.DigitalOcean);
   }
 
   // Creates a DigitaloceanServer object and adds it to the in-memory server list.

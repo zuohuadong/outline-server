@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {Account} from "../cloud/digitalocean_api";
+
 export interface Server {
   // Get the server's name for display.
   getName(): string;
@@ -131,6 +133,8 @@ export type RegionMap = {
 // manager on cloud providers where we can provide a "magical" user experience,
 // e.g. DigitalOcean.
 export interface ManagedServerRepository {
+  // TODO: This is not generic.
+  getAccount(): Promise<Account>;
   // Lists all existing Shadowboxes. If `fetchFromHost` is true, performs a network request to
   // retrieve the servers; otherwise resolves with a cached server list.
   listServers(fetchFromHost?: boolean): Promise<ManagedServer[]>;
@@ -139,6 +143,8 @@ export interface ManagedServerRepository {
   // Creates a server and returning it when it becomes active (i.e. the server has
   // created, not necessarily once shadowbox installation has finished).
   createServer(region: RegionId, name: string): Promise<ManagedServer>;
+  // Disconnects the account.
+  disconnect(): void;
 }
 
 // Configuration for manual servers.  This is the output emitted from the
@@ -156,6 +162,8 @@ export interface ManualServerRepository {
   listServers(): Promise<ManualServer[]>;
   // Adds a manual server using the config (e.g. user input).
   addServer(config: ManualServerConfig): Promise<ManualServer>;
+
+  // TODO: Move this logic into ManualServer#forget()
   removeServer(config: ManualServerConfig): void;
   // Retrieves a server with `config`.
   findServer(config: ManualServerConfig): ManualServer|undefined;

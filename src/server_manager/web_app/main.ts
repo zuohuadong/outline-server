@@ -19,11 +19,12 @@ import * as i18n from '../infrastructure/i18n';
 import {getSentryApiUrl} from '../infrastructure/sentry';
 
 import {App} from './app';
-import {DigitalOceanTokenManager} from './digitalocean_oauth';
 import * as digitalocean_server from './digitalocean_server';
 import {DisplayServerRepository} from './display_server';
 import {ManualServerRepository} from './manual_server';
 import {AppRoot} from './ui_components/app-root.js';
+import {AccountRepository, DigitalOceanAccountPersistence, PersistedAccount} from "./account_manager";
+import {KeyValueStorage} from "../infrastructure/key_value_storage";
 
 type LanguageDef = {
   id: string,
@@ -103,12 +104,6 @@ document.addEventListener('WebComponentsReady', () => {
   const version = params.get('version');
   const sentryDsn = params.get('sentryDsn');
 
-  // Set DigitalOcean server repository parameters.
-  const digitalOceanServerRepositoryFactory = (session: digitalocean_api.DigitalOceanSession) => {
-    return new digitalocean_server.DigitaloceanServerRepository(
-        session, shadowboxImage, metricsUrl, getSentryApiUrl(sentryDsn), debugMode);
-  };
-
   // Create and start the app.
   const language = getLanguageToUse();
   const languageDirection = SUPPORTED_LANGUAGES[language.string()].dir;
@@ -117,13 +112,23 @@ document.addEventListener('WebComponentsReady', () => {
   // Polymer 3, which adds typescript support.
   const appRoot = document.getElementById('appRoot') as unknown as AppRoot;
 
+  const storage = new KeyValueStorage('accounts', localStorage, (entry: PersistedAccount) => entry.cloudProviderId);
+  const digitalOceanServerRepositoryFactory = (session: digitalocean_api.DigitalOceanSession) => {
+    return new digitalocean_server.DigitaloceanServerRepository(
+        storage, session, shadowboxImage, metricsUrl, getSentryApiUrl(sentryDsn), debugMode);
+  };
+  const digitalOceanAccountPersistence = new DigitalOceanAccountPersistence(
+      digitalocean_api.createDigitalOceanSession,
+      digitalOceanServerRepositoryFactory);
+  const accountRepository = new AccountRepository(storage, digitalOceanAccountPersistence);
+
   const filteredLanguageDefs = Object.values(SUPPORTED_LANGUAGES);
   appRoot.supportedLanguages = sortLanguageDefsByName(filteredLanguageDefs);
   appRoot.setLanguage(language.string(), languageDirection);
   new App(
-      appRoot, version, digitalocean_api.createDigitalOceanSession,
-      digitalOceanServerRepositoryFactory, new ManualServerRepository('manualServers'),
-      new DisplayServerRepository(), new DigitalOceanTokenManager())
+      appRoot, version, accountRepository,
+      new ManualServerRepository('manualServers'),
+      new DisplayServerRepository())
       .start();
 });
 
