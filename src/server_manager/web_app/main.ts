@@ -16,15 +16,15 @@ import './ui_components/app-root.js';
 
 import * as digitalocean_api from '../cloud/digitalocean_api';
 import * as i18n from '../infrastructure/i18n';
+import {KeyValueStorage} from '../infrastructure/key_value_storage';
 import {getSentryApiUrl} from '../infrastructure/sentry';
 
+import {AccountRepository, DigitalOceanAccountPersistence, PersistedAccount} from './account_manager';
 import {App} from './app';
 import * as digitalocean_server from './digitalocean_server';
 import {DisplayServerRepository} from './display_server';
 import {ManualServerRepository} from './manual_server';
 import {AppRoot} from './ui_components/app-root.js';
-import {AccountRepository, DigitalOceanAccountPersistence, PersistedAccount} from "./account_manager";
-import {KeyValueStorage} from "../infrastructure/key_value_storage";
 
 type LanguageDef = {
   id: string,
@@ -112,22 +112,21 @@ document.addEventListener('WebComponentsReady', () => {
   // Polymer 3, which adds typescript support.
   const appRoot = document.getElementById('appRoot') as unknown as AppRoot;
 
-  const storage = new KeyValueStorage('accounts', localStorage, (entry: PersistedAccount) => entry.cloudProviderId);
+  const storage = new KeyValueStorage(
+      'accounts', localStorage, (entry: PersistedAccount) => entry.cloudProviderId);
   const digitalOceanServerRepositoryFactory = (session: digitalocean_api.DigitalOceanSession) => {
     return new digitalocean_server.DigitaloceanServerRepository(
         storage, session, shadowboxImage, metricsUrl, getSentryApiUrl(sentryDsn), debugMode);
   };
   const digitalOceanAccountPersistence = new DigitalOceanAccountPersistence(
-      digitalocean_api.createDigitalOceanSession,
-      digitalOceanServerRepositoryFactory);
+      digitalocean_api.createDigitalOceanSession, digitalOceanServerRepositoryFactory);
   const accountRepository = new AccountRepository(storage, digitalOceanAccountPersistence);
 
   const filteredLanguageDefs = Object.values(SUPPORTED_LANGUAGES);
   appRoot.supportedLanguages = sortLanguageDefsByName(filteredLanguageDefs);
   appRoot.setLanguage(language.string(), languageDirection);
   new App(
-      appRoot, version, accountRepository,
-      new ManualServerRepository('manualServers'),
+      appRoot, version, accountRepository, new ManualServerRepository('manualServers'),
       new DisplayServerRepository())
       .start();
 });

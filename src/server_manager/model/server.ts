@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Account} from "../cloud/digitalocean_api";
+import {Account} from '../cloud/digitalocean_api';
 
 export interface Server {
   // Get the server's name for display.

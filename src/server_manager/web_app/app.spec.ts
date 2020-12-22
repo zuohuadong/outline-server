@@ -13,16 +13,16 @@
 // limitations under the License.
 
 import * as digitalocean_api from '../cloud/digitalocean_api';
+import {KeyValueStorage} from '../infrastructure/key_value_storage';
 import {InMemoryStorage} from '../infrastructure/memory_storage';
 import {sleep} from '../infrastructure/sleep';
 import * as server from '../model/server';
+import {ManualServerConfig} from '../model/server';
 
+import {AccountRepository, DigitalOceanAccountPersistence, PersistedAccount} from './account_manager';
 import {App} from './app';
 import {DisplayServerRepository, makeDisplayServer} from './display_server';
 import {AppRoot} from './ui_components/app-root.js';
-import {ManualServerConfig} from "../model/server";
-import {AccountRepository, DigitalOceanAccountPersistence, PersistedAccount} from "./account_manager";
-import {KeyValueStorage} from "../infrastructure/key_value_storage";
 
 const TOKEN_WITH_NO_SERVERS = 'no-server-token';
 const TOKEN_WITH_ONE_SERVER = 'one-server-token';
@@ -87,8 +87,7 @@ describe('App', () => {
 
     const displayServerRepo = new DisplayServerRepository(new InMemoryStorage());
     const appRoot = document.getElementById('appRoot') as unknown as AppRoot;
-    const app = createTestApp(
-        appRoot, manualServerRepo, displayServerRepo, managedServerRepo);
+    const app = createTestApp(appRoot, manualServerRepo, displayServerRepo, managedServerRepo);
 
     await app.start();
     // Validate that server metadata is shown.
@@ -127,8 +126,7 @@ describe('App', () => {
     ]]);
     const displayServerRepo = new DisplayServerRepository(new InMemoryStorage(store));
     const appRoot = document.getElementById('appRoot') as unknown as AppRoot;
-    const app = createTestApp(
-        appRoot, manualServerRepo, displayServerRepo, managedServerRepo);
+    const app = createTestApp(appRoot, manualServerRepo, displayServerRepo, managedServerRepo);
 
     await app.start();
     const managedServers = await managedServerRepo.listServers();
@@ -185,17 +183,15 @@ describe('App', () => {
   //      const tokenManager = new InMemoryDigitalOceanTokenManager();
   //      tokenManager.token = TOKEN_WITH_NO_SERVERS;
   //      const managedSeverRepository = new FakeManagedServerRepository();
-  //      // Manually create the server since the DO repository server factory function is synchronous.
-  //      await managedSeverRepository.createUninstalledServer();
-  //      const app = createTestApp(appRoot, tokenManager, null, null, managedSeverRepository);
-  //      await app.start();
-  //      expect(appRoot.currentPage).toEqual('serverProgressStep');
+  //      // Manually create the server since the DO repository server factory function is
+  //      synchronous. await managedSeverRepository.createUninstalledServer(); const app =
+  //      createTestApp(appRoot, tokenManager, null, null, managedSeverRepository); await
+  //      app.start(); expect(appRoot.currentPage).toEqual('serverProgressStep');
   // });
 });
 
 function createTestApp(
-    appRoot: AppRoot,
-    manualServerRepo?: server.ManualServerRepository,
+    appRoot: AppRoot, manualServerRepo?: server.ManualServerRepository,
     displayServerRepository?: FakeDisplayServerRepository,
     managedServerRepository?: FakeManagedServerRepository) {
   const VERSION = '0.0.1';
@@ -217,12 +213,13 @@ function createTestApp(
     displayServerRepository = new FakeDisplayServerRepository();
   }
 
-  const storage = new KeyValueStorage('test', new InMemoryStorage(), (entry: PersistedAccount) => entry.cloudProviderId);
+  const storage = new KeyValueStorage(
+      'test', new InMemoryStorage(), (entry: PersistedAccount) => entry.cloudProviderId);
   const accountRepository = new AccountRepository(
-      storage, new DigitalOceanAccountPersistence(fakeDigitalOceanSessionFactory, fakeDigitalOceanServerRepositoryFactory));
-  return new App(
-      appRoot, VERSION, accountRepository,
-      manualServerRepo, displayServerRepository);
+      storage,
+      new DigitalOceanAccountPersistence(
+          fakeDigitalOceanSessionFactory, fakeDigitalOceanServerRepositoryFactory));
+  return new App(appRoot, VERSION, accountRepository, manualServerRepo, displayServerRepository);
 }
 
 class FakeServer implements server.Server {
@@ -332,8 +329,7 @@ class FakeManualServerRepository implements server.ManualServerRepository {
     return Promise.resolve(this.servers);
   }
 
-  removeServer(config: ManualServerConfig): void {
-  }
+  removeServer(config: ManualServerConfig): void {}
 }
 
 class FakeDigitalOceanSession implements digitalocean_api.DigitalOceanSession {
@@ -409,8 +405,7 @@ class FakeManagedServerRepository implements server.ManagedServerRepository {
     this.servers.push(newServer);
     return Promise.resolve(newServer);
   }
-  disconnect(): void {
-  }
+  disconnect(): void {}
 }
 
 class FakeDisplayServerRepository extends DisplayServerRepository {

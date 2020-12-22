@@ -18,13 +18,13 @@ import {Account, DigitalOceanSession, DropletInfo} from '../cloud/digitalocean_a
 import * as crypto from '../infrastructure/crypto';
 import * as errors from '../infrastructure/errors';
 import {asciiToHex, hexToString} from '../infrastructure/hex_encoding';
+import {KeyValueStorage} from '../infrastructure/key_value_storage';
 import * as do_install_script from '../install_scripts/do_install_script';
+import {CloudProviderId} from '../model/cloud';
 import * as server from '../model/server';
 
+import {PersistedAccount} from './account_manager';
 import {ShadowboxServer} from './shadowbox_server';
-import {KeyValueStorage} from "../infrastructure/key_value_storage";
-import {PersistedAccount} from "./account_manager";
-import {CloudProviderId} from "../model/cloud";
 
 // WARNING: these strings must be lowercase due to a DigitalOcean case
 // sensitivity bug.
@@ -347,9 +347,8 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
 
   constructor(
       private accountStorage: KeyValueStorage<PersistedAccount, string>,
-      private digitalOcean: DigitalOceanSession, private image: string,
-      private metricsUrl: string, private sentryApiUrl: string|undefined,
-      private debugMode: boolean) {}
+      private digitalOcean: DigitalOceanSession, private image: string, private metricsUrl: string,
+      private sentryApiUrl: string|undefined, private debugMode: boolean) {}
 
   getAccount(): Promise<Account> {
     return this.digitalOcean.getAccount();

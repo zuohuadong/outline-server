@@ -22,13 +22,13 @@ import {sleep} from '../infrastructure/sleep';
 import * as server from '../model/server';
 import {ManagedServerRepository, ManualServerRepository} from '../model/server';
 
+import {AccountRepository} from './account_manager';
 import * as digitalocean_server from './digitalocean_server';
 import {DisplayServer, DisplayServerRepository, makeDisplayServer} from './display_server';
 import {parseManualServerConfig} from './management_urls';
 import {AppRoot} from './ui_components/app-root.js';
 import {Location} from './ui_components/outline-region-picker-step';
 import {DisplayAccessKey, DisplayDataAmount, ServerView} from './ui_components/outline-server-view.js';
-import {AccountRepository} from "./account_manager";
 
 // The Outline DigitalOcean team's referral code:
 //   https://www.digitalocean.com/help/referral-program/
@@ -322,7 +322,8 @@ export class App {
 
   private async loadDigitalOceanServers(): Promise<void> {
     const account = this.accountRepository.getDigitalOceanAccount();
-    const managedServers = !!account ? await this.enterDigitalOceanMode(account).catch(e => []) : [];
+    const managedServers =
+        !!account ? await this.enterDigitalOceanMode(account).catch(e => []) : [];
     const installedManagedServers = managedServers.filter(server => server.isInstallCompleted());
     const serverBeingCreated = managedServers.find(server => !server.isInstallCompleted());
     if (!!serverBeingCreated) {
@@ -495,7 +496,8 @@ export class App {
 
   // Signs in to DigitalOcean through the OAuthFlow. Creates a `ManagedServerRepository` and
   // resolves with the servers present in the account.
-  private async enterDigitalOceanMode(digitalOceanAccount: ManagedServerRepository): Promise<server.ManagedServer[]> {
+  private async enterDigitalOceanMode(digitalOceanAccount: ManagedServerRepository):
+      Promise<server.ManagedServer[]> {
     const authEvents = new EventEmitter();
     let cancelled = false;
     let activatingAccount = false;
@@ -548,15 +550,13 @@ export class App {
             oauthUi.showAccountActive();
             maybeSleep = sleep(1500);
           }
-          maybeSleep
-              .then(async () => resolve(digitalOceanAccount.listServers()))
-              .catch((e) => {
-                digitalOceanAccount.disconnect();
-                this.showIntro();
-                const msg = 'Could not fetch server list from DigitalOcean';
-                console.error(msg);
-                reject(new Error(msg));
-              });
+          maybeSleep.then(async () => resolve(digitalOceanAccount.listServers())).catch((e) => {
+            digitalOceanAccount.disconnect();
+            this.showIntro();
+            const msg = 'Could not fetch server list from DigitalOcean';
+            console.error(msg);
+            reject(new Error(msg));
+          });
         } else {
           this.appRoot.showDigitalOceanOauthFlow();
           activatingAccount = true;
