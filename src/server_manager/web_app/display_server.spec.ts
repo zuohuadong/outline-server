@@ -37,10 +37,9 @@ describe('DisplayServerRepository', () => {
     ]]);
     const repository = new DisplayServerRepository(new InMemoryStorage(store));
 
-    repository.listServers().then((servers) => {
-      expect(servers).toContain(objectContaining(displayServer1));
-      expect(servers).toContain(objectContaining(displayServer2));
-    });
+    const displayServers = repository.listServers();
+    expect(displayServers).toContain(objectContaining(displayServer1));
+    expect(displayServers).toContain(objectContaining(displayServer2));
   });
 
   it('throws when adding duplicate servers', () => {

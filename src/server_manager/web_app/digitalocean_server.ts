@@ -347,8 +347,14 @@ export class DigitaloceanServerRepository implements server.ManagedServerReposit
 
   constructor(
       private accountStorage: KeyValueStorage<PersistedAccount, string>,
-      private digitalOcean: DigitalOceanSession, private image: string, private metricsUrl: string,
-      private sentryApiUrl: string|undefined, private debugMode: boolean) {}
+      private digitalOcean: DigitalOceanSession, private image: string,
+      private metricsUrl: string, private sentryApiUrl: string|undefined,
+      private debugMode: boolean) {}
+
+  async getName(): Promise<string> {
+    const account = await this.digitalOcean.getAccount();
+    return account.email;
+  }
 
   getAccount(): Promise<Account> {
     return this.digitalOcean.getAccount();

@@ -23,10 +23,14 @@ export interface DisplayServer {
 
 // Returns a `DisplayServer` corresponding to `server`.
 export async function makeDisplayServer(server: server.Server): Promise<DisplayServer> {
+  let name = server.getName();
+  if (!name) {
+    name = server.getHostnameForAccessKeys();
+  }
+
   return {
     id: server.getManagementApiUrl(),
-    name: await server.isHealthy().catch((e) => false) ? server.getName() :
-                                                         server.getHostnameForAccessKeys(),
+    name,
     isManaged: !!(server as server.ManagedServer).getHost,
     isSynced: true
   };
@@ -44,9 +48,9 @@ export class DisplayServerRepository {
     this.loadServers();
   }
 
-  listServers(): Promise<DisplayServer[]> {
+  listServers(): DisplayServer[] {
     // Copy the server array; resolving with the instance variable may lead to races in `findServer`
-    return Promise.resolve(JSON.parse(JSON.stringify(this.servers)));
+    return JSON.parse(JSON.stringify(this.servers));
   }
 
   addServer(server: DisplayServer) {

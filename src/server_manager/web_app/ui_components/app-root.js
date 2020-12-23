@@ -346,13 +346,13 @@ export class AppRoot extends mixinBehaviors
                   <paper-icon-button icon="more-vert" slot="dropdown-trigger"></paper-icon-button>
                   <div class="do-overflow-menu" slot="dropdown-content">
                     <h4>[[localize('digitalocean-disconnect-account')]]</h4>
-                    <div class="account-info"><img src="images/digital_ocean_logo.svg">{{adminEmail}}</div>
+                    <div class="account-info"><img src="images/digital_ocean_logo.svg">{{digitalOceanAccountName}}</div>
                     <div class="sign-out-button" on-tap="signOutTapped">[[localize('digitalocean-disconnect')]]</div>
                   </div>
                 </paper-menu-button>
               </div>
               <div class="servers-container">
-                <template is="dom-repeat" items="{{managedServerList}}" as="server" filter="_isServerManaged" sort="_sortServersByName">
+                <template is="dom-repeat" items="{{digitalOceanServers}}" as="server" filter="_isServerManaged" sort="_sortServersByName">
                   <div class\$="server {{_computeServerClasses(selectedServer, server)}}" data-server\$="[[server]]" on-tap="_showServer">
                     <img class="server-icon" src\$="images/{{_computeServerImage(selectedServer, server)}}">
                     <span>{{server.name}}</span>
@@ -361,7 +361,7 @@ export class AppRoot extends mixinBehaviors
               </div>
             </div>
             <!-- Manual servers -->
-            <div class="servers-section" hidden\$="{{manualServerList.length === 0}}">
+            <div class="servers-section" hidden\$="{{!hasManualServers}}">
               <div class="servers-header">
                 <span>[[localize('servers-manual')]]</span>
               </div>
@@ -406,13 +406,13 @@ export class AppRoot extends mixinBehaviors
         <app-header-layout>
           <div class="app-container">
             <iron-pages attr-for-selected="id" selected="{{ currentPage }}">
-              <outline-intro-step id="intro" is-signed-in-to-digital-ocean="{{isSignedInToDigitalOcean}}" digital-ocean-email="{{adminEmail}}" localize="[[localize]]"></outline-intro-step>
+              <outline-intro-step id="intro" is-signed-in-to-digital-ocean="{{isSignedInToDigitalOcean}}" digital-ocean-email="{{digitalOceanAccountName}}" localize="[[localize]]"></outline-intro-step>
               <outline-do-oauth-step id="digitalOceanOauth" localize="[[localize]]"></outline-do-oauth-step>
               <outline-manual-server-entry id="manualEntry" localize="[[localize]]"></outline-manual-server-entry>
               <outline-region-picker-step id="regionPicker" localize="[[localize]]"></outline-region-picker-step>
               <outline-server-progress-step id="serverProgressStep" localize="[[localize]]"></outline-server-progress-step>
               <div id="serverView">
-                <template is="dom-repeat" items="{{managedServerList}}" as="server">
+                <template is="dom-repeat" items="{{digitalOceanServers}}" as="server">
                   <outline-server-view id="serverView-{{_base64Encode(server.id)}}" localize="[[localize]]" hidden\$="{{!_isServerSelected(selectedServer, server)}}"></outline-server-view>
                 </template>
                 <template is="dom-repeat" items="{{manualServerList}}" as="server">
@@ -434,14 +434,14 @@ export class AppRoot extends mixinBehaviors
             <!-- DigitalOcean servers -->
             <div class="side-bar-section servers-section" hidden\$="{{!isSignedInToDigitalOcean}}">
               <img class="provider-icon" src="images/do_white_logo.svg">
-              <template is="dom-repeat" items="{{managedServerList}}" as="server" filter="_isServerManaged" sort="_sortServersByName">
+              <template is="dom-repeat" items="{{digitalOceanServers}}" as="server" filter="_isServerManaged" sort="_sortServersByName">
                 <div class\$="server {{_computeServerClasses(selectedServer, server)}}" data-server\$="[[server]]" on-tap="_showServer">
                   <img class="server-icon" src\$="images/{{_computeServerImage(selectedServer, server)}}">
                 </div>
               </template>
             </div>
             <!-- Manual servers -->
-            <div class="side-bar-section servers-section" hidden\$="{{manualServerList.length === 0}}">
+            <div class="side-bar-section servers-section" hidden\$="{{!hasManualServers}}">
               <img class="provider-icon" src="images/cloud.svg">
               <template is="dom-repeat" items="{{manualServerList}}" as="server" filter="_isServerManual" sort="_sortServersByName">
                 <div class\$="server {{_computeServerClasses(selectedServer, server)}}" data-server\$="[[server]]" on-tap="_showServer">
@@ -500,13 +500,17 @@ export class AppRoot extends mixinBehaviors
       // An array of {id, name, dir} language objects.
       supportedLanguages: {type: Array, readonly: true},
       useKeyIfMissing: {type: Boolean},
-      manualServerList: {type: Array},
       selectedServer: {type: Object},
-      adminEmail: {type: String},
-      managedServerList: {type: Array},
+      digitalOceanAccountName: {type: String},
+      digitalOceanServers: {type: Array},
       isSignedInToDigitalOcean: {
         type: Boolean,
-        computed: '_computeIsSignedInToDigitalOcean(adminEmail)',
+        computed: '_computeIsSignedInToDigitalOcean(digitalOceanAccountName)',
+      },
+      manualServerList: {type: Array},
+      hasManualServers: {
+        type: Boolean,
+        computed: '_computeHasManualServers(manualServerList)',
       },
       outlineVersion: String,
       userAcceptedTos: {
@@ -531,21 +535,17 @@ export class AppRoot extends mixinBehaviors
     super();
     /** @type {DisplayServer} */
     this.selectedServer = undefined;
+    this.digitalOceanAccountName = '';
+    /** @type {DisplayServer[]} */
+    this.digitalOceanServers = [];
     /** @type {DisplayServer[]} */
     this.manualServerList = [];
-
     this.language = '';
     this.supportedLanguages = [];
     this.useKeyIfMissing = true;
     this.outlineVersion = '';
     this.currentPage = 'intro';
     this.shouldShowSideBar = false;
-
-    // TODO: Replace adminEmail and serverList with DisplayAccount
-    // TODO: Remove/refactor _computeIsSignedInToDigitalOcean
-    this.adminEmail = '';
-    /** @type {DisplayServer[]} */
-    this.managedServerList = [];
 
     this.addEventListener('RegionSelected', this.handleRegionSelected);
     this.addEventListener(
@@ -730,8 +730,13 @@ export class AppRoot extends mixinBehaviors
           }
         });
   }
+
   _computeIsSignedInToDigitalOcean(adminEmail) {
     return Boolean(adminEmail);
+  }
+
+  _computeHasManualServers(manualServerList) {
+    return manualServerList && manualServerList.length > 0;
   }
 
   _userAcceptedTosChanged(userAcceptedTos) {

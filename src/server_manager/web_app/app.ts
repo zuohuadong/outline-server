@@ -393,12 +393,11 @@ export class App {
   // Updates the UI with the stored display servers and server creation in progress, if any.
   private async syncDisplayServersToUi() {
     const displayServerBeingCreated = this.getDisplayServerBeingCreated();
-    await this.displayServerRepository.listServers().then((displayServers) => {
-      if (!!displayServerBeingCreated) {
-        displayServers.push(displayServerBeingCreated);
-      }
-      this.appRoot.managedServerList = displayServers;
-    });
+    const displayServers = await this.displayServerRepository.listServers();
+    if (!!displayServerBeingCreated) {
+      displayServers.push(displayServerBeingCreated);
+    }
+    this.appRoot.managedServerList = displayServers;
   }
 
   // Removes `displayServer` from the UI.
@@ -517,15 +516,12 @@ export class App {
               if (cancelled) {
                 return Promise.reject('Authorization cancelled');
               }
-              console.log('here');
               return this.accountRepository.getDigitalOceanAccount().getAccount();
             })
             .then((account) => {
-              console.log('here2');
               authEvents.emit('account-update', account);
             })
             .catch((error) => {
-              console.log('here3');
               if (!cancelled) {
                 this.showIntro();
                 const msg = `Failed to get DigitalOcean account information: ${error}`;
@@ -540,7 +536,7 @@ export class App {
         if (cancelled) {
           return [];
         }
-        this.appRoot.adminEmail = account.email;
+        this.appRoot.digitalOceanAccountName = account.email;
         if (account.status === 'active') {
           bringToFront();
           let maybeSleep = Promise.resolve();
@@ -723,19 +719,16 @@ export class App {
         });
   }
 
+  private async disconnectDigitalOceanAccount() {
+    this.accountRepository.getDigitalOceanAccount().disconnect();
+    this.appRoot.digitalOceanAccountName = '';
+    this.displayServerRepository.listServers()
+      .map((displayServer) => this.removeServerFromDisplay(displayServer));
+  }
+
   // Clears the credentials and returns to the intro screen.
   private clearCredentialsAndShowIntro() {
-    this.accountRepository.getDigitalOceanAccount().disconnect();
-    // Remove display servers from storage.
-    this.displayServerRepository.listServers().then((displayServers: DisplayServer[]) => {
-      for (const displayServer of displayServers) {
-        if (displayServer.isManaged) {
-          this.removeServerFromDisplay(displayServer);
-        }
-      }
-    });
-    // Reset UI
-    this.appRoot.adminEmail = '';
+    this.disconnectDigitalOceanAccount();
     if (!!this.appRoot.selectedServer && this.appRoot.selectedServer.isManaged) {
       this.appRoot.selectedServer = null;
       this.showIntro();

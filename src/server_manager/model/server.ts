@@ -133,8 +133,9 @@ export type RegionMap = {
 // manager on cloud providers where we can provide a "magical" user experience,
 // e.g. DigitalOcean.
 export interface ManagedServerRepository {
-  // TODO: This is not generic.
+  getName(): Promise<string>;
   getAccount(): Promise<Account>;
+
   // Lists all existing Shadowboxes. If `fetchFromHost` is true, performs a network request to
   // retrieve the servers; otherwise resolves with a cached server list.
   listServers(fetchFromHost?: boolean): Promise<ManagedServer[]>;
@@ -162,9 +163,6 @@ export interface ManualServerRepository {
   listServers(): Promise<ManualServer[]>;
   // Adds a manual server using the config (e.g. user input).
   addServer(config: ManualServerConfig): Promise<ManualServer>;
-
-  // TODO: Move this logic into ManualServer#forget()
-  removeServer(config: ManualServerConfig): void;
   // Retrieves a server with `config`.
   findServer(config: ManualServerConfig): ManualServer|undefined;
 }
