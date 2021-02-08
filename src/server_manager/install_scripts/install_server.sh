@@ -252,11 +252,13 @@ function generate_certificate() {
   readonly SB_CERTIFICATE_FILE="${CERTIFICATE_NAME}.crt"
   readonly SB_PRIVATE_KEY_FILE="${CERTIFICATE_NAME}.key"
   declare -a openssl_req_flags=(
-    -x509 -nodes -days 36500 -newkey rsa:2048
+    -x509 -nodes -days 36500 -newkey rsa:2048 -verbose
     -subj "/CN=${PUBLIC_HOSTNAME}"
     -keyout "${SB_PRIVATE_KEY_FILE}" -out "${SB_CERTIFICATE_FILE}"
   )
+  set -x # DEBUG: Print the full command
   openssl req "${openssl_req_flags[@]}"
+  set +x
 }
 
 function generate_certificate_fingerprint() {
@@ -426,7 +428,7 @@ install_shadowbox() {
   # Make a directory for persistent state
   run_silent "Creating persistent state dir" create_persisted_state_dir
   run_silent "Generating secret key" generate_secret_key
-  run_silent "Generating TLS certificate" generate_certificate
+  run_interactive "Generating TLS certificate" generate_certificate
   run_silent "Generating SHA-256 certificate fingerprint" generate_certificate_fingerprint
   run_silent "Writing config" write_config
 
