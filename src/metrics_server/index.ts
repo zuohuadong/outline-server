@@ -21,7 +21,7 @@ import * as connections from './connection_metrics';
 import * as features from './feature_metrics';
 
 interface Config {
-  datasetName: string;
+datasetName: string;
   connectionMetricsTableName: string;
   featureMetricsTableName: string;
 }
