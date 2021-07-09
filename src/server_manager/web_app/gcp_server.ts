@@ -22,8 +22,12 @@ import {DataAmount, ManagedServerHost, MonetaryCost} from '../model/server';
 import {ShadowboxServer} from './shadowbox_server';
 
 enum InstallState {
-  // Unknown state - server may still be installing.
+  // Unknown state - server request may still be pending.
   UNKNOWN = 0,
+  // All required resources (VMs, IPs, Firewall rules) have been created
+  CREATED,
+  // The system has booted (detected by the creation of guest tags)
+  BOOTED,
   // Server is running and has the API URL and certificate fingerprint set.
   SUCCESS,
   // Server is in an error state.
@@ -37,6 +41,7 @@ export class GcpServer extends ShadowboxServer implements server.ManagedServer {
 
   private readonly gcpHost: GcpHost;
   private installState: InstallState = InstallState.UNKNOWN;
+  private listener: (progress: number) => void = null;
 
   constructor(
       id: string,
@@ -53,25 +58,52 @@ export class GcpServer extends ShadowboxServer implements server.ManagedServer {
   }
 
   isInstallCompleted(): boolean {
-    return this.installState !== InstallState.UNKNOWN;
+    return this.installState >= InstallState.SUCCESS;
   }
 
   async waitOnInstall(): Promise<void> {
     await this.completion;
-    while (this.installState === InstallState.UNKNOWN) {
+    this.setInstallState(InstallState.CREATED);
+    while (this.installState < InstallState.SUCCESS) {
       const outlineGuestAttributes = await this.getOutlineGuestAttributes();
+      if (outlineGuestAttributes.size > 0 && this.installState < InstallState.BOOTED) {
+        this.setInstallState(InstallState.BOOTED);
+      }
       if (outlineGuestAttributes.has('apiUrl') && outlineGuestAttributes.has('certSha256')) {
         const certSha256 = outlineGuestAttributes.get('certSha256');
         const apiUrl = outlineGuestAttributes.get('apiUrl');
         trustCertificate(certSha256);
         this.setManagementApiUrl(apiUrl);
-        this.installState = InstallState.SUCCESS;
+        this.setInstallState(InstallState.SUCCESS);
       } else if (outlineGuestAttributes.has('install-error')) {
-        this.installState = InstallState.ERROR;
+        this.setInstallState(InstallState.ERROR);
         throw new errors.ServerInstallFailedError();
       }
 
       await sleep(GcpServer.GUEST_ATTRIBUTES_POLLING_INTERVAL_MS);
+    }
+  }
+
+  setProgressListener(listener: (progress: number) => void): void {
+    this.listener = listener;
+    listener(this.installProgress());
+  }
+
+  private setInstallState(newState: InstallState): void {
+    this.installState = newState;
+    if (this.listener) {
+      this.listener(this.installProgress());
+    }
+  }
+
+  private installProgress(): number {
+    // Installation typically takes 5 minutes in total.
+    switch (this.installState) {
+      case InstallState.UNKNOWN: return 0.1;
+      case InstallState.CREATED: return 0.2;
+      case InstallState.BOOTED: return 0.8;
+      case InstallState.SUCCESS: return 1.0;
+      default: return 0;
     }
   }
 
