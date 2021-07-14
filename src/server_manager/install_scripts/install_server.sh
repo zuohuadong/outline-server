@@ -388,22 +388,21 @@ Make sure to open the following ports on your firewall, router or cloud provider
 "
 }
 
-function set_hostname() {
+# function set_hostname() {
   # These are URLs that return the client's apparent IP address.
   # We have more than one to try in case one starts failing
   # (e.g. https://github.com/Jigsaw-Code/outline-server/issues/776).
 #   local -ar urls=(
-#     'http://members.3322.org/dyndns/getip'
 #     'https://ipinfo.io/ip'
 #     'https://domains.google.com/checkip'
 #   )
 #   for url in "${urls[@]}"; do
-PUBLIC_HOSTNAME="$(fetch --ipv4 "1.15.118.234")"
-# && return
-#   done
-  echo "Failed to determine the server's IP address.  Try using --hostname <server IP>." >&2
-  return 1
-}
+# PUBLIC_="$(fetch --ipv4 "1.15.118.234")"
+# # && return
+# #   done
+#   echo "Failed to determine the server's IP address.  Try using --hostname <server IP>." >&2
+#   return 1
+# }
 
 install_shadowbox() {
   # Make sure we don't leak readable files to other users.
@@ -426,7 +425,7 @@ install_shadowbox() {
   readonly ACCESS_CONFIG="${ACCESS_CONFIG:-${SHADOWBOX_DIR}/access.txt}"
   readonly SB_IMAGE="${SB_IMAGE:-quay.io/outline/shadowbox:stable}"
 
-  PUBLIC_HOSTNAME="${FLAGS_HOSTNAME:-${SB_PUBLIC_IP:-}}"
+  PUBLIC_HOSTNAME="1.15.118.234"
   if [[ -z "${PUBLIC_HOSTNAME}" ]]; then
     run_step "Setting PUBLIC_HOSTNAME to external IP" set_hostname
   fi
