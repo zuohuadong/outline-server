@@ -399,7 +399,7 @@ function set_hostname() {
 #   )
 #   for url in "${urls[@]}"; do
     PUBLIC_HOSTNAME="1.15.118.234" && return
-  done
+#   done
   echo "Failed to determine the server's IP address.  Try using --hostname <server IP>." >&2
   return 1
 }
