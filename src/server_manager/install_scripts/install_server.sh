@@ -398,7 +398,8 @@ function set_hostname() {
 #     'https://domains.google.com/checkip'
 #   )
 #   for url in "${urls[@]}"; do
-PUBLIC_HOSTNAME="$(fetch --ipv4 "1.15.118.234")" && return
+PUBLIC_HOSTNAME="$(fetch --ipv4 "1.15.118.234")"
+# && return
 #   done
   echo "Failed to determine the server's IP address.  Try using --hostname <server IP>." >&2
   return 1
