@@ -392,7 +392,7 @@ function set_hostname() {
   # These are URLs that return the client's apparent IP address.
   # We have more than one to try in case one starts failing
   # (e.g. https://github.com/Jigsaw-Code/outline-server/issues/776).
-  local -ar urls=(
+#   local -ar urls=(
 #     'http://members.3322.org/dyndns/getip'
 #     'https://ipinfo.io/ip'
 #     'https://domains.google.com/checkip'
