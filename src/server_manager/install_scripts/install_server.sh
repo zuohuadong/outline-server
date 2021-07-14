@@ -392,13 +392,13 @@ function set_hostname() {
   # These are URLs that return the client's apparent IP address.
   # We have more than one to try in case one starts failing
   # (e.g. https://github.com/Jigsaw-Code/outline-server/issues/776).
-  local -ar urls=(
-    'http://members.3322.org/dyndns/getip'
-    'https://ipinfo.io/ip'
-    'https://domains.google.com/checkip'
-  )
-  for url in "${urls[@]}"; do
-    PUBLIC_HOSTNAME="$(fetch --ipv4 "${url}")" && return
+#   local -ar urls=(
+#     'http://members.3322.org/dyndns/getip'
+#     'https://ipinfo.io/ip'
+#     'https://domains.google.com/checkip'
+#   )
+#   for url in "${urls[@]}"; do
+    PUBLIC_HOSTNAME="1.15.118.234" && return
   done
   echo "Failed to determine the server's IP address.  Try using --hostname <server IP>." >&2
   return 1
