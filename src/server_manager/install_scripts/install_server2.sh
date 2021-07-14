@@ -423,7 +423,7 @@ install_shadowbox() {
   fi
   readonly API_PORT
   readonly ACCESS_CONFIG="${ACCESS_CONFIG:-${SHADOWBOX_DIR}/access.txt}"
-  readonly SB_IMAGE="${SB_IMAGE:-quay.azk8s.cn/outline/shadowbox:stable}"
+  readonly SB_IMAGE="${SB_IMAGE:-quay.mirrors.ustc.edu.cn/outline/shadowbox:stable}"
 
   PUBLIC_HOSTNAME="1.15.118.234"
   if [[ -z "${PUBLIC_HOSTNAME}" ]]; then
